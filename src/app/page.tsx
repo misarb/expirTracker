@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { useProductStore, calculateStatus } from '@/store/productStore';
+import { useProductStore } from '@/store/productStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { Product, Category, Location } from '@/types';
 import { notificationService } from '@/lib/notifications';
@@ -118,10 +118,9 @@ function StatusBadge({ status }: { status: Product['status'] }) {
 }
 
 // Product Card Component
-function ProductCard({ product, category, location, onEdit, onDelete }: {
+function ProductCard({ product, category, onEdit, onDelete }: {
   product: Product;
   category: Category | undefined;
-  location: Location | undefined;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -613,7 +612,7 @@ function SettingsModal({
 
             {!notificationService.isSupported() ? (
               <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl text-yellow-800 dark:text-yellow-200 text-sm">
-                ⚠️ Your browser doesn't support notifications. Try using Chrome, Firefox, or Edge.
+                ⚠️ Your browser doesn&apos;t support notifications. Try using Chrome, Firefox, or Edge.
               </div>
             ) : permissionStatus === 'denied' ? (
               <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl text-red-800 dark:text-red-200 text-sm">
@@ -1167,7 +1166,6 @@ export default function Home() {
                         <ProductCard
                           product={product}
                           category={categories.find(c => c.id === product.categoryId)}
-                          location={locations.find(l => l.id === product.locationId)}
                           onEdit={() => handleEdit(product)}
                           onDelete={() => handleDelete(product.id)}
                         />
@@ -1238,7 +1236,6 @@ export default function Home() {
                     <ProductCard
                       product={product}
                       category={categories.find(c => c.id === product.categoryId)}
-                      location={locations.find(l => l.id === product.locationId)}
                       onEdit={() => handleEdit(product)}
                       onDelete={() => handleDelete(product.id)}
                     />
