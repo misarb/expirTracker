@@ -785,9 +785,10 @@ function SettingsModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const { notifications, setNotificationsEnabled } = useSettingsStore();
+  const { locations, deleteLocation } = useProductStore();
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
-
 
   useEffect(() => {
     if (isOpen && notificationService.isSupported()) {
@@ -803,8 +804,6 @@ function SettingsModal({
     }
   };
 
-
-
   const handleDisableNotifications = () => {
     setNotificationsEnabled(false);
   };
@@ -814,57 +813,46 @@ function SettingsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in">
+      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6 flex items-center gap-2">
           <SettingsIcon />
-          Settings
+          {t('settings')}
         </h2>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Notifications Section */}
           <div>
             <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
               <BellIcon />
-              Notifications
+              {t('notifications')}
             </h3>
 
             {!notificationService.isSupported() ? (
               <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl text-yellow-800 dark:text-yellow-200 text-sm">
-                ⚠️ Your browser doesn&apos;t support notifications. Try using Chrome, Firefox, or Edge.
+                ⚠️ Your browser doesn&apos;t support notifications.
               </div>
             ) : permissionStatus === 'denied' ? (
               <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl text-red-800 dark:text-red-200 text-sm">
-                ❌ Notifications are blocked. Please enable them in your browser settings.
+                ❌ Notifications are blocked.
               </div>
             ) : permissionStatus === 'granted' && notifications.enabled ? (
               <div className="space-y-4">
                 <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-800 dark:text-green-200 text-sm flex items-center gap-2">
                   ✅ Notifications are enabled!
                 </div>
-
-                <div className="text-sm text-[rgb(var(--muted-foreground))]">
-                  You will receive reminders:
-                  <ul className="mt-2 space-y-1 ml-4">
-                    <li>• 7 days before expiration</li>
-                    <li>• 3 days before expiration</li>
-                    <li>• 1 day before expiration</li>
-                    <li>• On the expiration day</li>
-                  </ul>
-                </div>
-
                 <div>
                   <button
                     onClick={handleDisableNotifications}
                     className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
                   >
-                    Disable
+                    {t('disable')}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-[rgb(var(--muted-foreground))]">
-                  Enable notifications to get reminders before your products expire. Never miss an expiration date!
+                  Enable notifications to get reminders.
                 </p>
 
                 <button
@@ -872,17 +860,53 @@ function SettingsModal({
                   className="w-full px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium flex items-center justify-center gap-2"
                 >
                   <BellIcon />
-                  Enable Notifications
+                  {t('enableNotifications')}
                 </button>
               </div>
             )}
           </div>
 
+          {/* Manage Locations */}
+          <div>
+            <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
+              <span className="text-xl">📍</span>
+              {t('manageLocations')}
+            </h3>
+            <div className="space-y-2">
+              {locations.map(loc => (
+                <div key={loc.id} className="flex items-center justify-between p-3 bg-[rgb(var(--secondary))] rounded-xl border border-[rgb(var(--border))]">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{loc.icon}</span>
+                    <div>
+                      <p className="font-medium text-[rgb(var(--foreground))]">{loc.name}</p>
+                    </div>
+                  </div>
+                  {locations.length > 1 && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`${t('delete')} ${loc.name}?`)) {
+                          deleteLocation(loc.id);
+                        }
+                      }}
+                      className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      title={t('delete')}
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {locations.length <= 1 && (
+                <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last location.</p>
+              )}
+            </div>
+          </div>
+
           {/* About Section */}
           <div className="pt-4 border-t border-[rgb(var(--border))]">
-            <h3 className="text-sm font-medium text-[rgb(var(--muted-foreground))] mb-2">About</h3>
+            <h3 className="text-sm font-medium text-[rgb(var(--muted-foreground))] mb-2">{t('about')}</h3>
             <p className="text-xs text-[rgb(var(--muted-foreground))]">
-              ExpireTrack v1.0 • Track product expiration dates and reduce waste.
+              ExpireTrack v1.0 • {t('neverWaste')}
             </p>
           </div>
         </div>
@@ -891,7 +915,7 @@ function SettingsModal({
           onClick={onClose}
           className="mt-6 w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
         >
-          Close
+          {t('back')}
         </button>
       </div>
     </div>

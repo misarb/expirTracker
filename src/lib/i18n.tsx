@@ -59,7 +59,8 @@ type TranslationKey =
     | 'shelfLifeDays'
     | 'openedDate'
     | 'notOpened'
-    | 'notifyTiming';
+    | 'notifyTiming'
+    | 'manageLocations';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
     en: {
@@ -117,6 +118,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         openedDate: 'Date Opened',
         notOpened: 'Not Opened',
         notifyTiming: 'Notify me (days before)',
+        manageLocations: 'Manage Locations',
     },
     fr: {
         appName: 'ExpireTrack',
@@ -173,6 +175,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         openedDate: 'Date d\'ouverture',
         notOpened: 'Non ouvert',
         notifyTiming: 'Me notifier (jours avant)',
+        manageLocations: 'Gérer les emplacements',
     },
     ar: {
         appName: 'ExpireTrack',
@@ -229,6 +232,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         openedDate: 'تاريخ الفتح',
         notOpened: 'غير مفتوح',
         notifyTiming: 'تنبيه (أيام قبل)',
+        manageLocations: 'إدارة المواقع',
     },
 };
 

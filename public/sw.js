@@ -1,5 +1,5 @@
 // Service Worker for ExpireTrack PWA
-const CACHE_NAME = 'expiretrack-v1';
+const CACHE_NAME = 'expiretrack-v2';
 const urlsToCache = [
     '/',
     '/stats',
@@ -35,26 +35,43 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - Network First for navigation, Cache First for others
 self.addEventListener('fetch', (event) => {
+    // For navigation requests (HTML pages), try network first, then cache
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    // Cache the latest version
+                    const responseToCache = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                    return response;
+                })
+                .catch(() => {
+                    // If offline, return cached version
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+
+    // For other assets (images, scripts), use Cache First
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                // Return cached version or fetch from network
                 if (response) {
                     return response;
                 }
                 return fetch(event.request).then((response) => {
-                    // Don't cache if not a valid response
                     if (!response || response.status !== 200 || response.type !== 'basic') {
                         return response;
                     }
-                    // Clone the response
                     const responseToCache = response.clone();
-                    caches.open(CACHE_NAME)
-                        .then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
                     return response;
                 });
             })
