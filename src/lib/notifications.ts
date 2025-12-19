@@ -86,6 +86,8 @@ class NotificationService {
             name: string;
             expirationDate: string;
             status: string;
+            hasExpirationDate?: boolean;
+            notifyTiming?: number;
         }>,
         notifiedProducts: Set<string>
     ): Set<string> {
@@ -95,6 +97,9 @@ class NotificationService {
         const newNotified = new Set(notifiedProducts);
 
         products.forEach((product) => {
+            // Skip if product has no expiration date
+            if (product.hasExpirationDate === false) return;
+
             const expDate = new Date(product.expirationDate);
             expDate.setHours(0, 0, 0, 0);
 
@@ -107,7 +112,18 @@ class NotificationService {
             // Skip if already notified for this product at this threshold
             if (newNotified.has(notificationKey)) return;
 
-            // Notification thresholds - more inclusive
+            // Custom Notification Timing
+            if (product.notifyTiming !== undefined && daysUntil === product.notifyTiming) {
+                this.sendNotification({
+                    title: `🔔 Reminder: ${daysUntil} Days Left`,
+                    body: `${product.name} expires in ${daysUntil} days (Custom Alert)`,
+                    tag: `custom-${daysUntil}-${product.id}`,
+                });
+                newNotified.add(notificationKey);
+                return;
+            }
+
+            // Standard Notification thresholds
             if (daysUntil === 14) {
                 this.sendNotification({
                     title: '📅 2 Weeks Notice',

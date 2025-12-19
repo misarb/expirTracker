@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   keywords: ["expiration tracker", "food waste", "medicine reminder", "product management"],
   authors: [{ name: "ExpireTrack" }],
   manifest: "/manifest.json",
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/icon-192.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

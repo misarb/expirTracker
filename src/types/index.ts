@@ -38,6 +38,11 @@ export interface Product {
     isRecurring?: boolean;
     recurringDays?: number; // Days between expiration and new product
     image?: string; // Base64 string of the product image
+    hasExpirationDate?: boolean;
+    useShelfLife?: boolean;
+    shelfLifeDays?: number;
+    openedDate?: string;
+    notifyTiming?: number;
     createdAt: string;
     updatedAt: string;
 }

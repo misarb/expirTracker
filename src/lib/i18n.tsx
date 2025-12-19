@@ -52,7 +52,14 @@ type TranslationKey =
     | 'date'
     | 'name'
     | 'status'
-    | 'productImage';
+    | 'productImage'
+    | 'hasExpirationDate'
+    | 'noExpiration'
+    | 'expiresAfterOpening'
+    | 'shelfLifeDays'
+    | 'openedDate'
+    | 'notOpened'
+    | 'notifyTiming';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
     en: {
@@ -103,6 +110,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         name: 'Name',
         status: 'Status',
         productImage: 'Product Image (optional)',
+        hasExpirationDate: 'Has expiration date?',
+        noExpiration: 'No Expiration Date',
+        expiresAfterOpening: 'Expires after opening (PAO)?',
+        shelfLifeDays: 'Shelf Life (Days)',
+        openedDate: 'Date Opened',
+        notOpened: 'Not Opened',
+        notifyTiming: 'Notify me (days before)',
     },
     fr: {
         appName: 'ExpireTrack',
@@ -152,6 +166,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         name: 'Nom',
         status: 'Statut',
         productImage: 'Image du produit (optionnel)',
+        hasExpirationDate: 'A une date d\'expiration ?',
+        noExpiration: 'Pas de date d\'expiration',
+        expiresAfterOpening: 'Expire après ouverture (PAO) ?',
+        shelfLifeDays: 'Durée de vie (Jours)',
+        openedDate: 'Date d\'ouverture',
+        notOpened: 'Non ouvert',
+        notifyTiming: 'Me notifier (jours avant)',
     },
     ar: {
         appName: 'ExpireTrack',
@@ -201,6 +222,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         name: 'الاسم',
         status: 'الحالة',
         productImage: 'صورة المنتج (اختياري)',
+        hasExpirationDate: 'هل له تاريخ انتهاء؟',
+        noExpiration: 'لا يوجد تاريخ انتهاء',
+        expiresAfterOpening: 'ينتهي بعد الفتح (PAO)؟',
+        shelfLifeDays: 'فترة الصلاحية (أيام)',
+        openedDate: 'تاريخ الفتح',
+        notOpened: 'غير مفتوح',
+        notifyTiming: 'تنبيه (أيام قبل)',
     },
 };
 

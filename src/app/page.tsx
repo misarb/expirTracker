@@ -153,16 +153,23 @@ function ProductCard({ product, category, onEdit, onDelete }: {
               {product.name}
             </h3>
             <p className="text-sm text-[rgb(var(--muted-foreground))]">
-              {daysUntil < 0
-                ? `${t('expired')} ${Math.abs(daysUntil)} ${t('days')} ago`
-                : daysUntil === 0
-                  ? t('expiring')
-                  : `${t('expiring')} in ${daysUntil} ${t('days')}`
-              }
+              {product.hasExpirationDate === false ? (
+                <span className="text-green-600 font-medium">✨ {t('noExpiration')}</span>
+              ) : product.useShelfLife && !product.openedDate ? (
+                <span className="text-blue-600 font-medium">📦 {t('notOpened')} ({product.shelfLifeDays} {t('days')})</span>
+              ) : (
+                daysUntil < 0
+                  ? `${t('expired')} ${Math.abs(daysUntil)} ${t('days')} ago`
+                  : daysUntil === 0
+                    ? t('expiring')
+                    : `${t('expiring')} in ${daysUntil} ${t('days')}`
+              )}
             </p>
-            <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
-              {expirationDate.toLocaleDateString()}
-            </p>
+            {product.hasExpirationDate !== false && (
+              <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
+                {expirationDate.toLocaleDateString()}
+              </p>
+            )}
             {product.quantity && (
               <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
                 {t('quantity')}: {product.quantity}
@@ -273,6 +280,11 @@ function ProductModal({
     isRecurring: false,
     recurringDays: 7,
     image: '',
+    hasExpirationDate: true,
+    useShelfLife: false,
+    shelfLifeDays: '',
+    openedDate: '',
+    notifyTiming: '',
   });
 
   useEffect(() => {
@@ -288,6 +300,11 @@ function ProductModal({
         isRecurring: editingProduct.isRecurring || false,
         recurringDays: editingProduct.recurringDays || 7,
         image: editingProduct.image || '',
+        hasExpirationDate: editingProduct.hasExpirationDate !== false, // Default true
+        useShelfLife: editingProduct.useShelfLife || false,
+        shelfLifeDays: editingProduct.shelfLifeDays?.toString() || '',
+        openedDate: editingProduct.openedDate || '',
+        notifyTiming: editingProduct.notifyTiming?.toString() || '',
       });
     } else {
       setFormData({
@@ -301,6 +318,11 @@ function ProductModal({
         isRecurring: false,
         recurringDays: 7,
         image: '',
+        hasExpirationDate: true,
+        useShelfLife: false,
+        shelfLifeDays: '',
+        openedDate: '',
+        notifyTiming: '',
       });
     }
   }, [editingProduct, categories, locations, isOpen, defaultLocationId]);
@@ -323,17 +345,41 @@ function ProductModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Determine effective expiration date
+    let expirationDate = formData.expirationDate;
+
+    // If using Shelf Life (PAO), calculate expiration if opened
+    if (formData.hasExpirationDate && formData.useShelfLife && formData.openedDate && formData.shelfLifeDays) {
+      const opened = new Date(formData.openedDate);
+      const days = parseInt(formData.shelfLifeDays);
+      if (!isNaN(days)) {
+        const exp = new Date(opened);
+        exp.setDate(exp.getDate() + days);
+        expirationDate = exp.toISOString().split('T')[0];
+      }
+    }
+    // If No Expiration, set a far future date or handle in logic? 
+    // We'll set a placeholder far future date for sorting, but 'hasExpirationDate: false' flag is key.
+    if (!formData.hasExpirationDate) {
+      expirationDate = '2099-12-31';
+    }
+
     const productData = {
       name: formData.name,
       categoryId: formData.categoryId,
       locationId: formData.locationId,
-      expirationDate: formData.expirationDate,
+      expirationDate: expirationDate,
       purchaseDate: formData.purchaseDate || undefined,
       quantity: formData.quantity ? parseInt(formData.quantity) : undefined,
       notes: formData.notes || undefined,
       isRecurring: formData.isRecurring,
       recurringDays: formData.isRecurring ? formData.recurringDays : undefined,
       image: formData.image || undefined,
+      hasExpirationDate: formData.hasExpirationDate,
+      useShelfLife: formData.useShelfLife,
+      shelfLifeDays: formData.shelfLifeDays ? parseInt(formData.shelfLifeDays) : undefined,
+      openedDate: formData.openedDate || undefined,
+      notifyTiming: formData.notifyTiming ? parseInt(formData.notifyTiming) : undefined,
     };
 
     if (editingProduct) {
@@ -343,6 +389,18 @@ function ProductModal({
     }
 
     onClose();
+  };
+
+  const handleIncrement = () => {
+    const current = parseInt(formData.quantity) || 0;
+    setFormData({ ...formData, quantity: (current + 1).toString() });
+  };
+
+  const handleDecrement = () => {
+    const current = parseInt(formData.quantity) || 0;
+    if (current > 1) {
+      setFormData({ ...formData, quantity: (current - 1).toString() });
+    }
   };
 
   if (!isOpen) return null;
@@ -355,11 +413,11 @@ function ProductModal({
           {editingProduct ? `✏️ ${t('editProduct')}` : `➕ ${t('addProduct')}`}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Product Name */}
           <div>
             <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-              {t('productName')} *
+              {t('productName')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -377,8 +435,9 @@ function ProductModal({
               {t('productImage')}
             </label>
             <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] cursor-pointer transition-colors">
-                <span>📸 {t('productImage')}</span>
+              <label className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] cursor-pointer transition-colors w-full justify-center sm:w-auto font-medium">
+                <span className="text-xl">📷</span>
+                <span>{t('productImage')}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -387,7 +446,7 @@ function ProductModal({
                 />
               </label>
               {formData.image && (
-                <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[rgb(var(--border))]">
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[rgb(var(--border))] shrink-0 bg-gray-100">
                   <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
                   <button
                     type="button"
@@ -401,21 +460,81 @@ function ProductModal({
             </div>
           </div>
 
+          {/* Expiration Configuration */}
+          <div className="p-5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--secondary))/30] space-y-5">
+
+            {/* Has Expiration Checkbox */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="hasExp"
+                checked={formData.hasExpirationDate}
+                onChange={(e) => setFormData({ ...formData, hasExpirationDate: e.target.checked })}
+                className="w-5 h-5 rounded border-[rgb(var(--border))] text-[rgb(var(--primary))] focus:ring-[rgb(var(--primary))]"
+              />
+              <label htmlFor="hasExp" className="font-semibold text-[rgb(var(--foreground))] cursor-pointer select-none">
+                {t('hasExpirationDate')}
+              </label>
+            </div>
+
+            {formData.hasExpirationDate && (
+              <div className="space-y-4 animate-fade-in pt-2">
+                {/* PAO Checkbox */}
+                <div className="flex items-center gap-3 pl-8">
+                  <input
+                    type="checkbox"
+                    id="usePAO"
+                    checked={formData.useShelfLife}
+                    onChange={(e) => setFormData({ ...formData, useShelfLife: e.target.checked })}
+                    className="w-5 h-5 rounded border-[rgb(var(--border))] text-[rgb(var(--primary))] focus:ring-[rgb(var(--primary))]"
+                  />
+                  <label htmlFor="usePAO" className="text-sm font-medium text-[rgb(var(--foreground))] cursor-pointer select-none">
+                    {t('expiresAfterOpening')}
+                  </label>
+                </div>
+
+                {formData.useShelfLife ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-1">{t('shelfLifeDays')}</label>
+                      <input type="number" required={formData.useShelfLife} value={formData.shelfLifeDays} onChange={e => setFormData({ ...formData, shelfLifeDays: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--background))]" placeholder="e.g. 12" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-1">{t('openedDate')}</label>
+                      <input type="date" value={formData.openedDate} onChange={e => setFormData({ ...formData, openedDate: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--background))]" />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">{t('expirationDate')} <span className="text-red-500">*</span></label>
+                    <input type="date" required value={formData.expirationDate} onChange={e => setFormData({ ...formData, expirationDate: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--background))]" />
+                  </div>
+                )}
+
+                {/* Notification Timing */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1">{t('notifyTiming')}</label>
+                  <input type="number" min="0" value={formData.notifyTiming} onChange={e => setFormData({ ...formData, notifyTiming: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--background))]" placeholder="Default: 7" />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Category & Location */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                {t('category')} *
+                {t('category')} <span className="text-red-500">*</span>
               </label>
               <select
                 required
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base appearance-none cursor-pointer"
               >
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
+                    {cat.name}
                   </option>
                 ))}
               </select>
@@ -423,97 +542,104 @@ function ProductModal({
 
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                {t('location')} *
+                {t('location')} <span className="text-red-500">*</span>
               </label>
               <select
                 required
                 value={formData.locationId}
                 onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base appearance-none cursor-pointer"
               >
                 {locations.map((loc) => (
                   <option key={loc.id} value={loc.id}>
-                    {loc.icon} {loc.name}
+                    {loc.name}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Expiration Date & Quantity */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+            {/* Quantity Stepper */}
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                📅 {t('expirationDate')} *
+                {t('quantity')}
+              </label>
+              <div className="flex items-center shadow-sm rounded-xl overflow-hidden border border-[rgb(var(--border))] h-[50px]">
+                <button
+                  type="button"
+                  onClick={handleDecrement}
+                  className="w-14 h-full bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] active:bg-[rgb(var(--border))] transition-colors flex items-center justify-center text-xl font-bold text-[rgb(var(--foreground))]"
+                >
+                  −
+                </button>
+                <div className="flex-1 h-full bg-[rgb(var(--background))] flex items-center justify-center border-x border-[rgb(var(--border))]">
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                    className="w-full h-full bg-transparent text-center font-bold text-lg outline-none appearance-none px-2"
+                    placeholder="1"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleIncrement}
+                  className="w-14 h-full bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] active:bg-[rgb(var(--border))] transition-colors flex items-center justify-center text-xl font-bold text-[rgb(var(--foreground))]"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Purchase Date */}
+            <div>
+              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
+                {t('purchaseDate')}
               </label>
               <input
                 type="date"
-                required
-                value={formData.expirationDate}
-                onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                🔢 {t('quantity')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base text-center font-semibold"
-                placeholder="1"
+                value={formData.purchaseDate}
+                onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base h-[50px]"
               />
             </div>
           </div>
 
           {/* Recurring Option */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="recurring"
-              checked={formData.isRecurring}
-              onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-              className="w-5 h-5 rounded border-[rgb(var(--border))] text-[rgb(var(--primary))] focus:ring-[rgb(var(--primary))]"
-            />
-            <label htmlFor="recurring" className="text-sm font-medium text-[rgb(var(--foreground))]">
-              {t('recurring')}
-            </label>
-          </div>
-
-          {formData.isRecurring && (
-            <div>
-              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">{t('repeatEvery')} ({t('days')})</label>
+          <div className="p-4 rounded-xl border border-[rgb(var(--border))] space-y-3">
+            <div className="flex items-center gap-3">
               <input
-                type="number"
-                min="1"
-                value={formData.recurringDays}
-                onChange={(e) => setFormData({ ...formData, recurringDays: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))]"
+                type="checkbox"
+                id="recurring"
+                checked={formData.isRecurring}
+                onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+                className="w-5 h-5 rounded border-[rgb(var(--border))] text-[rgb(var(--primary))] focus:ring-[rgb(var(--primary))]"
               />
+              <label htmlFor="recurring" className="font-semibold text-[rgb(var(--foreground))] cursor-pointer select-none">
+                {t('recurring')}
+              </label>
             </div>
-          )}
 
-          {/* Purchase Date */}
-          <div>
-            <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-              🛒 {t('purchaseDate')}
-            </label>
-            <input
-              type="date"
-              value={formData.purchaseDate}
-              onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
-            />
+            {formData.isRecurring && (
+              <div className="pl-8 animate-fade-in">
+                <label className="block text-sm font-medium mb-1 text-[rgb(var(--muted-foreground))]">{t('repeatEvery')} ({t('days')})</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.recurringDays}
+                  onChange={(e) => setFormData({ ...formData, recurringDays: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--background))]"
+                />
+              </div>
+            )}
           </div>
 
           {/* Notes */}
           <div>
             <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-              📝 {t('notes')}
+              {t('notes')}
             </label>
             <textarea
               value={formData.notes}
@@ -525,19 +651,19 @@ function ProductModal({
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-3">
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-semibold text-base"
+              className="flex-1 px-4 py-3.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-bold text-base"
             >
               {t('cancel')}
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-semibold text-base"
+              className="flex-1 px-4 py-3.5 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-bold text-base shadow-lg shadow-[rgb(var(--primary))/25]"
             >
-              {editingProduct ? `💾 ${t('save')}` : `➕ ${t('addProduct')}`}
+              {editingProduct ? t('save') : t('addProduct')}
             </button>
           </div>
         </form>
@@ -661,7 +787,7 @@ function SettingsModal({
 }) {
   const { notifications, setNotificationsEnabled } = useSettingsStore();
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
-  const [testSent, setTestSent] = useState(false);
+
 
   useEffect(() => {
     if (isOpen && notificationService.isSupported()) {
@@ -677,14 +803,7 @@ function SettingsModal({
     }
   };
 
-  const handleTestNotification = () => {
-    notificationService.sendNotification({
-      title: '🔔 Test Notification',
-      body: 'Notifications are working! You will receive alerts when products are expiring.',
-    });
-    setTestSent(true);
-    setTimeout(() => setTestSent(false), 3000);
-  };
+
 
   const handleDisableNotifications = () => {
     setNotificationsEnabled(false);
@@ -733,16 +852,10 @@ function SettingsModal({
                   </ul>
                 </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleTestNotification}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
-                  >
-                    {testSent ? '✓ Sent!' : 'Send Test'}
-                  </button>
+                <div>
                   <button
                     onClick={handleDisableNotifications}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
+                    className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
                   >
                     Disable
                   </button>
