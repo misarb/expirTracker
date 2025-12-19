@@ -868,15 +868,6 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            {/* Support - hidden on mobile, in menu */}
-            <Link
-              href="/support"
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:opacity-90 transition-opacity hidden sm:flex"
-              title="Support"
-            >
-              <HeartIcon />
-            </Link>
-
             {/* Stats - hidden on very small */}
             <Link
               href="/stats"
