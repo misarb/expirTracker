@@ -786,8 +786,8 @@ function SettingsModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const { notifications, setNotificationsEnabled } = useSettingsStore();
-  const { locations, deleteLocation } = useProductStore();
+  const { notifications, setNotificationsEnabled, importSettings, ...settingsState } = useSettingsStore();
+  const { locations, deleteLocation, products, categories, importData } = useProductStore();
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
 
   useEffect(() => {
@@ -806,6 +806,61 @@ function SettingsModal({
 
   const handleDisableNotifications = () => {
     setNotificationsEnabled(false);
+  };
+
+  const handleExport = () => {
+    const data = {
+      products,
+      categories,
+      locations,
+      settings: { notifications, ...settingsState }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expiretrack-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert(t('exportSuccess'));
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm(t('importWarning'))) {
+      e.target.value = ''; // Reset input
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.products && data.categories && data.locations) {
+          importData({
+            products: data.products,
+            categories: data.categories,
+            locations: data.locations
+          });
+          if (data.settings) {
+            importSettings(data.settings);
+          }
+          alert(t('importSuccess'));
+          onClose();
+        } else {
+          alert(t('invalidFile'));
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        alert(t('invalidFile'));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
   };
 
   if (!isOpen) return null;
@@ -899,6 +954,28 @@ function SettingsModal({
               {locations.length <= 1 && (
                 <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last location.</p>
               )}
+            </div>
+          </div>
+
+          {/* Data Management */}
+          <div>
+            <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
+              <span className="text-xl">💾</span>
+              {t('dataManagement')}
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleExport}
+                className="p-3 bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] rounded-xl border border-[rgb(var(--border))] flex flex-col items-center gap-2 transition-colors"
+              >
+                <span className="text-2xl">⬇️</span>
+                <span className="font-medium text-sm text-[rgb(var(--foreground))]">{t('exportData')}</span>
+              </button>
+              <label className="p-3 bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] rounded-xl border border-[rgb(var(--border))] flex flex-col items-center gap-2 transition-colors cursor-pointer">
+                <span className="text-2xl">⬆️</span>
+                <span className="font-medium text-sm text-[rgb(var(--foreground))]">{t('importData')}</span>
+                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+              </label>
             </div>
           </div>
 

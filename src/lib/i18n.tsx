@@ -60,7 +60,14 @@ type TranslationKey =
     | 'openedDate'
     | 'notOpened'
     | 'notifyTiming'
-    | 'manageLocations';
+    | 'manageLocations'
+    | 'dataManagement'
+    | 'exportData'
+    | 'importData'
+    | 'importWarning'
+    | 'exportSuccess'
+    | 'importSuccess'
+    | 'invalidFile';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
     en: {
@@ -119,6 +126,14 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         notOpened: 'Not Opened',
         notifyTiming: 'Notify me (days before)',
         manageLocations: 'Manage Locations',
+        // Data Management
+        dataManagement: 'Data Management',
+        exportData: 'Export Data',
+        importData: 'Import Data',
+        importWarning: 'Warning: Importing data will overwrite all current products, categories, and locations. Are you sure?',
+        exportSuccess: 'Data exported successfully!',
+        importSuccess: 'Data imported successfully!',
+        invalidFile: 'Invalid backup file.',
     },
     fr: {
         appName: 'ExpireTrack',
@@ -176,6 +191,14 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         notOpened: 'Non ouvert',
         notifyTiming: 'Me notifier (jours avant)',
         manageLocations: 'Gérer les emplacements',
+        // Data Management
+        dataManagement: 'Gestion des données',
+        exportData: 'Exporter les données',
+        importData: 'Importer les données',
+        importWarning: 'Attention : L\'importation de données écrasera tous les produits, catégories et lieux actuels. Êtes-vous sûr ?',
+        exportSuccess: 'Données exportées avec succès !',
+        importSuccess: 'Données importées avec succès !',
+        invalidFile: 'Fichier de sauvegarde invalide.',
     },
     ar: {
         appName: 'ExpireTrack',
@@ -233,7 +256,15 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         notOpened: 'غير مفتوح',
         notifyTiming: 'تنبيه (أيام قبل)',
         manageLocations: 'إدارة المواقع',
-    },
+        // Data Management
+        dataManagement: 'إدارة البيانات',
+        exportData: 'تصدير البيانات',
+        importData: 'استيراد البيانات',
+        importWarning: 'تحذير: استيراد البيانات سيؤدي إلى استبدال جميع المنتجات والفئات والمواقع الحالية. هل أنت متأكد؟',
+        exportSuccess: 'تم تصدير البيانات بنجاح!',
+        importSuccess: 'تم استيراد البيانات بنجاح!',
+        invalidFile: 'ملف نسخ احتياطي غير صالح.',
+    }
 };
 
 interface I18nContextType {

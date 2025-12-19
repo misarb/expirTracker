@@ -23,6 +23,8 @@ interface SettingsStore {
     setNotificationDays: (days: number[]) => void;
     addNotifiedProduct: (key: string) => void;
     clearNotifiedProducts: () => void;
+
+    importSettings: (settings: Partial<SettingsStore>) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -35,6 +37,18 @@ export const useSettingsStore = create<SettingsStore>()(
                 daysBefore: [7, 3, 1, 0],
             },
             notifiedProducts: [],
+
+            importSettings: (settings) => {
+                set((state) => ({
+                    ...state,
+                    ...settings,
+                    // Preserve functions, only update state properties
+                    theme: settings.theme || state.theme,
+                    language: settings.language || state.language,
+                    notifications: settings.notifications || state.notifications,
+                    notifiedProducts: settings.notifiedProducts || state.notifiedProducts
+                }));
+            },
 
             setTheme: (theme) => {
                 set({ theme });

@@ -49,6 +49,9 @@ interface ProductStore {
     getProductsByLocation: (locationId: string) => Product[];
     getExpiringProducts: (days: number) => Product[];
 
+    // Data Management
+    importData: (data: { products: Product[], categories: Category[], locations: Location[] }) => void;
+
     // Refresh statuses
     refreshStatuses: () => void;
 }
@@ -162,6 +165,16 @@ export const useProductStore = create<ProductStore>()(
                     ),
                 }));
             },
+
+            importData: (data) => {
+                set({
+                    products: data.products || [],
+                    categories: data.categories || DEFAULT_CATEGORIES,
+                    locations: data.locations || DEFAULT_LOCATIONS
+                });
+            },
+
+
 
             getProductsByStatus: (status) => {
                 return get().products.filter((p) => p.status === status);
