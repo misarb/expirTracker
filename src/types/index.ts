@@ -29,12 +29,14 @@ export interface Product {
     id: string;
     name: string;
     categoryId: string;
-    locationId: string; // NEW: where the product is stored
+    locationId: string;
     expirationDate: string; // ISO date string
     purchaseDate?: string;
     quantity?: number;
     notes?: string;
     status: ProductStatus;
+    isRecurring?: boolean;
+    recurringDays?: number; // Days between expiration and new product
     createdAt: string;
     updatedAt: string;
 }

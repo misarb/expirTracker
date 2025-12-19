@@ -35,6 +35,8 @@ interface ProductStore {
 
     // Category actions
     addCategory: (category: Omit<Category, 'id'>) => void;
+    updateCategory: (id: string, updates: Partial<Category>) => void;
+    deleteCategory: (id: string) => void;
 
     // Location actions
     addLocation: (location: Omit<Location, 'id'>) => void;
@@ -107,6 +109,26 @@ export const useProductStore = create<ProductStore>()(
 
                 set((state) => ({
                     categories: [...state.categories, newCategory],
+                }));
+            },
+
+            updateCategory: (id, updates) => {
+                set((state) => ({
+                    categories: state.categories.map((category) =>
+                        category.id === id ? { ...category, ...updates } : category
+                    ),
+                }));
+            },
+
+            deleteCategory: (id) => {
+                set((state) => ({
+                    categories: state.categories.filter((category) => category.id !== id),
+                    // Move products from deleted category to first category
+                    products: state.products.map((product) =>
+                        product.categoryId === id
+                            ? { ...product, categoryId: state.categories[0]?.id || 'food' }
+                            : product
+                    ),
                 }));
             },
 

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 type Theme = 'light' | 'dark';
+type Language = 'en' | 'fr' | 'ar';
 
 interface NotificationSettings {
     enabled: boolean;
@@ -10,11 +11,13 @@ interface NotificationSettings {
 
 interface SettingsStore {
     theme: Theme;
+    language: Language;
     notifications: NotificationSettings;
     notifiedProducts: string[];  // Track which products we've already notified about
 
     setTheme: (theme: Theme) => void;
     toggleTheme: () => void;
+    setLanguage: (language: Language) => void;
 
     setNotificationsEnabled: (enabled: boolean) => void;
     setNotificationDays: (days: number[]) => void;
@@ -26,6 +29,7 @@ export const useSettingsStore = create<SettingsStore>()(
     persist(
         (set, get) => ({
             theme: 'light',
+            language: 'en',
             notifications: {
                 enabled: false,
                 daysBefore: [7, 3, 1, 0],
@@ -42,6 +46,10 @@ export const useSettingsStore = create<SettingsStore>()(
             toggleTheme: () => {
                 const newTheme = get().theme === 'light' ? 'dark' : 'light';
                 get().setTheme(newTheme);
+            },
+
+            setLanguage: (language) => {
+                set({ language });
             },
 
             setNotificationsEnabled: (enabled) => {
