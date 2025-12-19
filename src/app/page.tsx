@@ -314,14 +314,15 @@ function ProductModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6">
-          {editingProduct ? 'Edit Product' : 'Add New Product'}
+      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-lg p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6 flex items-center gap-2">
+          {editingProduct ? '✏️ Edit Product' : '➕ Add New Product'}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Product Name */}
           <div>
-            <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
+            <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
               Product Name *
             </label>
             <input
@@ -329,21 +330,22 @@ function ProductModal({
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
               placeholder="e.g., Milk, Aspirin, Sunscreen"
             />
           </div>
 
+          {/* Category & Location */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
+              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
                 Category *
               </label>
               <select
                 required
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
               >
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -354,14 +356,14 @@ function ProductModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
+              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
                 Location *
               </label>
               <select
                 required
                 value={formData.locationId}
                 onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
               >
                 {locations.map((loc) => (
                   <option key={loc.id} value={loc.id}>
@@ -372,73 +374,77 @@ function ProductModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
-              Expiration Date *
-            </label>
-            <input
-              type="date"
-              required
-              value={formData.expirationDate}
-              onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
-            />
-          </div>
-
+          {/* Expiration Date & Quantity */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
-                Purchase Date
+              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
+                📅 Expiration Date *
               </label>
               <input
                 type="date"
-                value={formData.purchaseDate}
-                onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
+                required
+                value={formData.expirationDate}
+                onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
-                Quantity
+              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
+                🔢 Quantity
               </label>
               <input
                 type="number"
                 min="1"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base text-center font-semibold"
                 placeholder="1"
               />
             </div>
           </div>
 
+          {/* Purchase Date */}
           <div>
-            <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
-              Notes
+            <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
+              🛒 Purchase Date (optional)
+            </label>
+            <input
+              type="date"
+              value={formData.purchaseDate}
+              onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
+              📝 Notes (optional)
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all resize-none"
+              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all resize-none text-base"
               rows={2}
-              placeholder="Optional notes..."
+              placeholder="Any additional notes..."
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          {/* Buttons */}
+          <div className="flex gap-3 pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
+              className="flex-1 px-4 py-3 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-semibold text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
+              className="flex-1 px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-semibold text-base"
             >
-              {editingProduct ? 'Save Changes' : 'Add Product'}
+              {editingProduct ? '💾 Save' : '➕ Add Product'}
             </button>
           </div>
         </form>
