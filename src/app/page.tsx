@@ -715,7 +715,7 @@ function StatsCard({ title, count, icon, color }: {
 // Main Page Component
 export default function Home() {
   const { products, categories, locations, deleteProduct, refreshStatuses } = useProductStore();
-  const { theme, toggleTheme, notifications, notifiedProducts, addNotifiedProduct } = useSettingsStore();
+  const { theme, toggleTheme, notifications, notifiedProducts, addNotifiedProduct, language, setLanguage } = useSettingsStore();
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -726,19 +726,9 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'status'>('date');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showIOSInstall, setShowIOSInstall] = useState(false);
+
   const [mounted, setMounted] = useState(false);
 
-  // Detect iOS Safari and show install prompt
-  useEffect(() => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator as unknown as { standalone: boolean }).standalone;
-    const hasSeenPrompt = localStorage.getItem('ios-install-dismissed');
-
-    if (isIOS && !isInStandaloneMode && !hasSeenPrompt) {
-      setShowIOSInstall(true);
-    }
-  }, []);
 
   // Check for expiring products and send notifications
   const checkNotifications = useCallback(() => {
@@ -926,6 +916,31 @@ export default function Home() {
               <FolderIcon />
             </button>
 
+            {/* Language Switcher - always visible */}
+            <button
+              onClick={() => {
+                const langs: ('en' | 'fr' | 'ar')[] = ['en', 'fr', 'ar'];
+                const currentIndex = langs.indexOf(language);
+                const nextLang = langs[(currentIndex + 1) % langs.length];
+                setLanguage(nextLang);
+              }}
+              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors flex items-center justify-center"
+              title="Change language"
+            >
+              <span className="text-sm">
+                {language === 'en' ? '🇬🇧' : language === 'fr' ? '🇫🇷' : '🇸🇦'}
+              </span>
+            </button>
+
+            {/* Support - always visible */}
+            <Link
+              href="/support"
+              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:opacity-90 transition-opacity flex items-center justify-center"
+              title="Support"
+            >
+              <HeartIcon />
+            </Link>
+
             {/* Add Product - always visible, compact on mobile */}
             <button
               onClick={() => setIsProductModalOpen(true)}
@@ -995,36 +1010,7 @@ export default function Home() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* iOS Install Banner */}
-        {showIOSInstall && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl text-white relative">
-            <button
-              onClick={() => {
-                setShowIOSInstall(false);
-                localStorage.setItem('ios-install-dismissed', 'true');
-              }}
-              className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <div className="flex items-start gap-4">
-              <span className="text-3xl">📲</span>
-              <div>
-                <p className="font-bold text-lg mb-1">Install ExpireTrack</p>
-                <p className="text-sm opacity-90 mb-2">Add to your home screen for the best experience:</p>
-                <div className="flex items-center gap-2 text-sm bg-white/20 rounded-lg px-3 py-2">
-                  <span>Tap</span>
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z" />
-                  </svg>
-                  <span>then &quot;Add to Home Screen&quot;</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Notification Banner */}
         {!notifications.enabled && products.length > 0 && (
