@@ -1118,7 +1118,7 @@ export default function Home() {
               className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors relative hidden sm:flex"
               title="Settings"
             >
-              <BellIcon />
+              <SettingsIcon />
               {notifications.enabled && (
                 <span className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full"></span>
               )}
