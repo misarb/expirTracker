@@ -51,7 +51,8 @@ type TranslationKey =
     | 'sortBy'
     | 'date'
     | 'name'
-    | 'status';
+    | 'status'
+    | 'productImage';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
     en: {
@@ -101,6 +102,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         date: 'Date',
         name: 'Name',
         status: 'Status',
+        productImage: 'Product Image (optional)',
     },
     fr: {
         appName: 'ExpireTrack',
@@ -149,6 +151,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         date: 'Date',
         name: 'Nom',
         status: 'Statut',
+        productImage: 'Image du produit (optionnel)',
     },
     ar: {
         appName: 'ExpireTrack',
@@ -197,6 +200,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         date: 'التاريخ',
         name: 'الاسم',
         status: 'الحالة',
+        productImage: 'صورة المنتج (اختياري)',
     },
 };
 

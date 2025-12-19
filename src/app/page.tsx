@@ -124,59 +124,67 @@ function ProductCard({ product, category, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   const expirationDate = new Date(product.expirationDate);
   const today = new Date();
   const daysUntil = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <div className="bg-[rgb(var(--card))] rounded-2xl p-5 shadow-sm border border-[rgb(var(--border))] hover:shadow-md transition-all duration-300 animate-fade-in group">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-2xl">{category?.icon || '📦'}</span>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--muted-foreground))]">
-              {category?.name || 'Unknown'}
-            </span>
-          </div>
-          <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] truncate mb-1">
-            {product.name}
-          </h3>
-          <p className="text-sm text-[rgb(var(--muted-foreground))]">
-            {daysUntil < 0
-              ? `Expired ${Math.abs(daysUntil)} days ago`
-              : daysUntil === 0
-                ? 'Expires today!'
-                : `Expires in ${daysUntil} days`
-            }
-          </p>
-          <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
-            {expirationDate.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric'
-            })}
-          </p>
-          {product.quantity && (
-            <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
-              Qty: {product.quantity}
-            </p>
-          )}
+    <div className="bg-[rgb(var(--card))] rounded-2xl overflow-hidden shadow-sm border border-[rgb(var(--border))] hover:shadow-md transition-all duration-300 animate-fade-in group">
+      {product.image && (
+        <div className="h-32 w-full relative bg-[rgb(var(--muted))]">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-full object-cover"
+          />
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <StatusBadge status={product.status} />
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={onEdit}
-              className="p-2 rounded-lg hover:bg-[rgb(var(--secondary))] text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))] transition-colors"
-            >
-              <EditIcon />
-            </button>
-            <button
-              onClick={onDelete}
-              className="p-2 rounded-lg hover:bg-[rgb(var(--destructive)/0.1)] text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--destructive))] transition-colors"
-            >
-              <TrashIcon />
-            </button>
+      )}
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-2xl">{category?.icon || '📦'}</span>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--muted-foreground))]">
+                {category?.name || 'Unknown'}
+              </span>
+            </div>
+            <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] truncate mb-1">
+              {product.name}
+            </h3>
+            <p className="text-sm text-[rgb(var(--muted-foreground))]">
+              {daysUntil < 0
+                ? `${t('expired')} ${Math.abs(daysUntil)} ${t('days')} ago`
+                : daysUntil === 0
+                  ? t('expiring')
+                  : `${t('expiring')} in ${daysUntil} ${t('days')}`
+              }
+            </p>
+            <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
+              {expirationDate.toLocaleDateString()}
+            </p>
+            {product.quantity && (
+              <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
+                {t('quantity')}: {product.quantity}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge status={product.status} />
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={onEdit}
+                className="p-2 rounded-lg hover:bg-[rgb(var(--secondary))] text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))] transition-colors"
+              >
+                <EditIcon />
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-2 rounded-lg hover:bg-[rgb(var(--destructive)/0.1)] text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--destructive))] transition-colors"
+              >
+                <TrashIcon />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -252,6 +260,7 @@ function ProductModal({
   locations: Location[];
   defaultLocationId?: string;
 }) {
+  const { t } = useI18n();
   const { addProduct, updateProduct } = useProductStore();
   const [formData, setFormData] = useState({
     name: '',
@@ -261,6 +270,9 @@ function ProductModal({
     purchaseDate: '',
     quantity: '',
     notes: '',
+    isRecurring: false,
+    recurringDays: 7,
+    image: '',
   });
 
   useEffect(() => {
@@ -273,6 +285,9 @@ function ProductModal({
         purchaseDate: editingProduct.purchaseDate || '',
         quantity: editingProduct.quantity?.toString() || '',
         notes: editingProduct.notes || '',
+        isRecurring: editingProduct.isRecurring || false,
+        recurringDays: editingProduct.recurringDays || 7,
+        image: editingProduct.image || '',
       });
     } else {
       setFormData({
@@ -283,9 +298,27 @@ function ProductModal({
         purchaseDate: '',
         quantity: '',
         notes: '',
+        isRecurring: false,
+        recurringDays: 7,
+        image: '',
       });
     }
   }, [editingProduct, categories, locations, isOpen, defaultLocationId]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5000000) { // 5MB limit
+        alert("File too large (max 5MB)");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, image: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,6 +331,9 @@ function ProductModal({
       purchaseDate: formData.purchaseDate || undefined,
       quantity: formData.quantity ? parseInt(formData.quantity) : undefined,
       notes: formData.notes || undefined,
+      isRecurring: formData.isRecurring,
+      recurringDays: formData.isRecurring ? formData.recurringDays : undefined,
+      image: formData.image || undefined,
     };
 
     if (editingProduct) {
@@ -316,14 +352,14 @@ function ProductModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-lg p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6 flex items-center gap-2">
-          {editingProduct ? '✏️ Edit Product' : '➕ Add New Product'}
+          {editingProduct ? `✏️ ${t('editProduct')}` : `➕ ${t('addProduct')}`}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Product Name */}
           <div>
             <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-              Product Name *
+              {t('productName')} *
             </label>
             <input
               type="text"
@@ -331,15 +367,45 @@ function ProductModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
-              placeholder="e.g., Milk, Aspirin, Sunscreen"
+              placeholder="e.g., Milk, Aspirin"
             />
+          </div>
+
+          {/* Product Image */}
+          <div>
+            <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
+              {t('productImage')}
+            </label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] cursor-pointer transition-colors">
+                <span>📸 {t('productImage')}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+              {formData.image && (
+                <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-[rgb(var(--border))]">
+                  <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, image: '' })}
+                    className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Category & Location */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                Category *
+                {t('category')} *
               </label>
               <select
                 required
@@ -357,7 +423,7 @@ function ProductModal({
 
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                Location *
+                {t('location')} *
               </label>
               <select
                 required
@@ -378,7 +444,7 @@ function ProductModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                📅 Expiration Date *
+                📅 {t('expirationDate')} *
               </label>
               <input
                 type="date"
@@ -391,7 +457,7 @@ function ProductModal({
 
             <div>
               <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-                🔢 Quantity
+                🔢 {t('quantity')}
               </label>
               <input
                 type="number"
@@ -404,10 +470,37 @@ function ProductModal({
             </div>
           </div>
 
+          {/* Recurring Option */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="recurring"
+              checked={formData.isRecurring}
+              onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+              className="w-5 h-5 rounded border-[rgb(var(--border))] text-[rgb(var(--primary))] focus:ring-[rgb(var(--primary))]"
+            />
+            <label htmlFor="recurring" className="text-sm font-medium text-[rgb(var(--foreground))]">
+              {t('recurring')}
+            </label>
+          </div>
+
+          {formData.isRecurring && (
+            <div>
+              <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">{t('repeatEvery')} ({t('days')})</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.recurringDays}
+                onChange={(e) => setFormData({ ...formData, recurringDays: parseInt(e.target.value) })}
+                className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))]"
+              />
+            </div>
+          )}
+
           {/* Purchase Date */}
           <div>
             <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-              🛒 Purchase Date (optional)
+              🛒 {t('purchaseDate')}
             </label>
             <input
               type="date"
@@ -420,14 +513,14 @@ function ProductModal({
           {/* Notes */}
           <div>
             <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
-              📝 Notes (optional)
+              📝 {t('notes')}
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all resize-none text-base"
               rows={2}
-              placeholder="Any additional notes..."
+              placeholder="..."
             />
           </div>
 
@@ -438,13 +531,13 @@ function ProductModal({
               onClick={onClose}
               className="flex-1 px-4 py-3 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-semibold text-base"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
               type="submit"
               className="flex-1 px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-semibold text-base"
             >
-              {editingProduct ? '💾 Save' : '➕ Add Product'}
+              {editingProduct ? `💾 ${t('save')}` : `➕ ${t('addProduct')}`}
             </button>
           </div>
         </form>
@@ -712,10 +805,15 @@ function StatsCard({ title, count, icon, color }: {
   );
 }
 
+import { useI18n } from '@/lib/i18n';
+
+// ... (existing imports)
+
 // Main Page Component
 export default function Home() {
+  const { t, lang: language, setLang: setLanguage } = useI18n();
   const { products, categories, locations, deleteProduct, refreshStatuses } = useProductStore();
-  const { theme, toggleTheme, notifications, notifiedProducts, addNotifiedProduct, language, setLanguage } = useSettingsStore();
+  const { theme, toggleTheme, notifications, notifiedProducts, addNotifiedProduct } = useSettingsStore();
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -915,11 +1013,11 @@ export default function Home() {
                 const nextLang = langs[(currentIndex + 1) % langs.length];
                 setLanguage(nextLang);
               }}
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors flex items-center justify-center"
+              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors flex items-center justify-center min-w-[3rem]"
               title="Change language"
             >
-              <span className="text-sm">
-                {language === 'en' ? '🇬🇧' : language === 'fr' ? '🇫🇷' : '🇸🇦'}
+              <span className="text-sm font-bold uppercase">
+                {language}
               </span>
             </button>
 
@@ -1012,8 +1110,8 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <BellIcon />
               <div>
-                <p className="font-semibold">Enable notifications</p>
-                <p className="text-sm opacity-90">Get reminders before your products expire</p>
+                <p className="font-semibold">{t('enableNotifications')}</p>
+                <p className="text-sm opacity-90">{t('notifications')}</p>
               </div>
             </div>
           </div>
@@ -1034,10 +1132,10 @@ export default function Home() {
 
         {/* Global Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <StatsCard title="Total" count={products.length} icon="📦" color="rgb(var(--primary))" />
-          <StatsCard title="Safe" count={safeProducts.length} icon="🟢" color="rgb(34, 197, 94)" />
-          <StatsCard title="Expiring" count={expiringProducts.length} icon="🟡" color="rgb(245, 158, 11)" />
-          <StatsCard title="Expired" count={expiredProducts.length} icon="🔴" color="rgb(239, 68, 68)" />
+          <StatsCard title={t('total')} count={products.length} icon="📦" color="rgb(var(--primary))" />
+          <StatsCard title={t('safe')} count={safeProducts.length} icon="🟢" color="rgb(34, 197, 94)" />
+          <StatsCard title={t('expiring')} count={expiringProducts.length} icon="🟡" color="rgb(245, 158, 11)" />
+          <StatsCard title={t('expired')} count={expiredProducts.length} icon="🔴" color="rgb(239, 68, 68)" />
         </div>
 
         {/* Location View or Product View */}
@@ -1046,7 +1144,7 @@ export default function Home() {
             {/* View Mode Toggle */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-[rgb(var(--foreground))]">
-                Your Storage Locations
+                {t('locations')}
               </h2>
               <div className="flex gap-2 bg-[rgb(var(--secondary))] p-1 rounded-xl">
                 <button
@@ -1094,7 +1192,7 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-xl bg-[rgb(var(--secondary))] flex items-center justify-center">
                     <PlusIcon />
                   </div>
-                  <span className="font-medium text-[rgb(var(--muted-foreground))]">Add Location</span>
+                  <span className="font-medium text-[rgb(var(--muted-foreground))]">{t('location')}</span>
                 </button>
               </div>
             ) : (
@@ -1108,7 +1206,7 @@ export default function Home() {
                     </div>
                     <input
                       type="text"
-                      placeholder="Search products, categories, locations..."
+                      placeholder={t('search')}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-10 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none placeholder:text-[rgb(var(--muted-foreground))]"
@@ -1128,10 +1226,10 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-2 mb-4">
                   <div className="flex flex-wrap gap-2 flex-1">
                     {[
-                      { value: 'all', label: 'All', count: displayProducts.length },
-                      { value: 'expiring-soon', label: '🟡 Expiring', count: displayProducts.filter(p => p.status === 'expiring-soon').length },
-                      { value: 'expired', label: '🔴 Expired', count: displayProducts.filter(p => p.status === 'expired').length },
-                      { value: 'safe', label: '🟢 Safe', count: displayProducts.filter(p => p.status === 'safe').length },
+                      { value: 'all', label: t('allProducts'), count: displayProducts.length },
+                      { value: 'expiring-soon', label: `🟡 ${t('expiring')}`, count: displayProducts.filter(p => p.status === 'expiring-soon').length },
+                      { value: 'expired', label: `🔴 ${t('expired')}`, count: displayProducts.filter(p => p.status === 'expired').length },
+                      { value: 'safe', label: `🟢 ${t('safe')}`, count: displayProducts.filter(p => p.status === 'safe').length },
                     ].map((filter) => (
                       <button
                         key={filter.value}
@@ -1151,9 +1249,9 @@ export default function Home() {
                     onChange={(e) => setSortBy(e.target.value as 'date' | 'name' | 'status')}
                     className="px-3 py-1.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--foreground))] text-sm focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none"
                   >
-                    <option value="date">Sort: Date</option>
-                    <option value="name">Sort: Name</option>
-                    <option value="status">Sort: Status</option>
+                    <option value="date">{t('sortBy')}: {t('date')}</option>
+                    <option value="name">{t('sortBy')}: {t('name')}</option>
+                    <option value="status">{t('sortBy')}: {t('status')}</option>
                   </select>
                 </div>
 
@@ -1161,12 +1259,12 @@ export default function Home() {
                   <div className="text-center py-16">
                     <span className="text-6xl mb-4 block">{searchQuery || filterStatus !== 'all' ? '🔍' : '📭'}</span>
                     <h2 className="text-xl font-semibold text-[rgb(var(--foreground))] mb-2">
-                      {searchQuery || filterStatus !== 'all' ? 'No matching products' : 'No products yet'}
+                      {searchQuery || filterStatus !== 'all' ? t('noProducts') : t('noProducts')}
                     </h2>
                     <p className="text-[rgb(var(--muted-foreground))] mb-6">
                       {searchQuery || filterStatus !== 'all'
-                        ? 'Try adjusting your search or filters'
-                        : 'Add your first product to start tracking expiration dates'}
+                        ? ''
+                        : t('addFirst')}
                     </p>
                     {searchQuery || filterStatus !== 'all' ? (
                       <button
@@ -1181,7 +1279,7 @@ export default function Home() {
                         className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
                       >
                         <PlusIcon />
-                        Add Your First Product
+                        {t('addFirst')}
                       </button>
                     )}
                   </div>

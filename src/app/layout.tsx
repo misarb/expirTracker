@@ -33,6 +33,8 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import { I18nProvider } from '@/lib/i18n';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -45,7 +47,9 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
+        <I18nProvider>
+          {children}
+        </I18nProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `

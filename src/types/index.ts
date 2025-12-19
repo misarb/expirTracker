@@ -37,6 +37,7 @@ export interface Product {
     status: ProductStatus;
     isRecurring?: boolean;
     recurringDays?: number; // Days between expiration and new product
+    image?: string; // Base64 string of the product image
     createdAt: string;
     updatedAt: string;
 }
