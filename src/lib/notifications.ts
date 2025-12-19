@@ -107,24 +107,31 @@ class NotificationService {
             // Skip if already notified for this product at this threshold
             if (newNotified.has(notificationKey)) return;
 
-            // Notification thresholds
-            if (daysUntil === 7) {
+            // Notification thresholds - more inclusive
+            if (daysUntil === 14) {
                 this.sendNotification({
-                    title: '⚠️ Product Expiring Soon',
-                    body: `${product.name} expires in 7 days!`,
+                    title: '📅 2 Weeks Notice',
+                    body: `${product.name} expires in 2 weeks`,
+                    tag: `expire-14-${product.id}`,
+                });
+                newNotified.add(notificationKey);
+            } else if (daysUntil === 7) {
+                this.sendNotification({
+                    title: '⚠️ 1 Week Left',
+                    body: `${product.name} expires in 1 week!`,
                     tag: `expire-7-${product.id}`,
                 });
                 newNotified.add(notificationKey);
             } else if (daysUntil === 3) {
                 this.sendNotification({
-                    title: '🟡 Product Expiring in 3 Days',
+                    title: '🟡 3 Days Left',
                     body: `${product.name} expires in 3 days!`,
                     tag: `expire-3-${product.id}`,
                 });
                 newNotified.add(notificationKey);
             } else if (daysUntil === 1) {
                 this.sendNotification({
-                    title: '🔴 Product Expires Tomorrow!',
+                    title: '🔴 Expires Tomorrow!',
                     body: `${product.name} expires tomorrow! Use it soon.`,
                     tag: `expire-1-${product.id}`,
                     requireInteraction: true,
@@ -132,19 +139,23 @@ class NotificationService {
                 newNotified.add(notificationKey);
             } else if (daysUntil === 0) {
                 this.sendNotification({
-                    title: '🚨 Product Expires Today!',
-                    body: `${product.name} expires TODAY! Check it now.`,
+                    title: '🚨 Expires Today!',
+                    body: `${product.name} expires TODAY!`,
                     tag: `expire-0-${product.id}`,
                     requireInteraction: true,
                 });
                 newNotified.add(notificationKey);
-            } else if (daysUntil < 0 && daysUntil >= -1) {
-                this.sendNotification({
-                    title: '❌ Product Expired',
-                    body: `${product.name} has expired. Consider discarding it.`,
-                    tag: `expired-${product.id}`,
-                });
-                newNotified.add(notificationKey);
+            } else if (daysUntil < 0) {
+                // Notify once for any expired product
+                const expiredKey = `${product.id}-expired`;
+                if (!newNotified.has(expiredKey)) {
+                    this.sendNotification({
+                        title: '❌ Product Expired',
+                        body: `${product.name} has expired (${Math.abs(daysUntil)} day${Math.abs(daysUntil) > 1 ? 's' : ''} ago)`,
+                        tag: `expired-${product.id}`,
+                    });
+                    newNotified.add(expiredKey);
+                }
             }
         });
 
