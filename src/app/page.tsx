@@ -1210,8 +1210,8 @@ export default function Home() {
                 onClick={() => { setIsSettingsModalOpen(true); setIsMobileMenuOpen(false); }}
                 className="flex items-center gap-3 p-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] w-full text-left"
               >
-                <BellIcon />
-                <span className="font-medium">Notifications</span>
+                <SettingsIcon />
+                <span className="font-medium">{t('settings')}</span>
                 {notifications.enabled && (
                   <span className="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">ON</span>
                 )}
