@@ -23,6 +23,7 @@ export interface Location {
     icon: string;
     color: string;
     description?: string;
+    parentId?: string | null;  // null/undefined = top-level space
 }
 
 export interface Product {

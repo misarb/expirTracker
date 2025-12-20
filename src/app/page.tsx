@@ -202,7 +202,8 @@ function ProductCard({ product, category, onEdit, onDelete }: {
   );
 }
 
-// Location Card Component
+// Location Card Component (kept for potential reuse)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function LocationCard({
   location,
   productCount,
@@ -566,11 +567,20 @@ function ProductModal({
                 onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base appearance-none cursor-pointer"
               >
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {t(`loc_${loc.id}` as TranslationKey) !== `loc_${loc.id}` ? t(`loc_${loc.id}` as TranslationKey) : loc.name}
-                  </option>
-                ))}
+                {/* Top-level spaces */}
+                {locations.filter(loc => !loc.parentId).map((parentLoc) => {
+                  const childSpaces = locations.filter(loc => loc.parentId === parentLoc.id);
+                  return [
+                    <option key={parentLoc.id} value={parentLoc.id}>
+                      {parentLoc.icon} {t(`loc_${parentLoc.id}` as TranslationKey) !== `loc_${parentLoc.id}` ? t(`loc_${parentLoc.id}` as TranslationKey) : parentLoc.name}
+                    </option>,
+                    ...childSpaces.map(childLoc => (
+                      <option key={childLoc.id} value={childLoc.id}>
+                        ↳ {childLoc.icon} {childLoc.name}
+                      </option>
+                    ))
+                  ];
+                })}
               </select>
             </div>
           </div>
@@ -696,12 +706,13 @@ function AddLocationModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { addLocation } = useProductStore();
+  const { addLocation, getTopLevelSpaces } = useProductStore();
   const [formData, setFormData] = useState({
     name: '',
     icon: '📁',
     color: '#6366F1',
     description: '',
+    parentId: null as string | null,
   });
 
   const emojiOptions = [
@@ -717,10 +728,13 @@ function AddLocationModal({
     '⭐', '🔵', '🟢', '🟡', '🟣', '🟠', '⚫', '⚪'
   ];
 
+  // Get top-level spaces for parent selector
+  const topLevelSpaces = getTopLevelSpaces();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addLocation(formData);
-    setFormData({ name: '', icon: '📁', color: '#6366F1', description: '' });
+    setFormData({ name: '', icon: '📁', color: '#6366F1', description: '', parentId: null });
     onClose();
   };
 
@@ -750,7 +764,7 @@ function AddLocationModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
-              Location Name *
+              Space Name *
             </label>
             <input
               type="text"
@@ -761,6 +775,30 @@ function AddLocationModal({
               placeholder="e.g., Pantry, Freezer, Closet"
             />
           </div>
+
+          {/* Parent Space Selector */}
+          {topLevelSpaces.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
+                Create inside (optional)
+              </label>
+              <select
+                value={formData.parentId || ''}
+                onChange={(e) => setFormData({ ...formData, parentId: e.target.value || null })}
+                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all"
+              >
+                <option value="">📁 Top Level (no parent)</option>
+                {topLevelSpaces.map((space) => (
+                  <option key={space.id} value={space.id}>
+                    {space.icon} {space.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
+                Create as a sub-space inside another space
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
@@ -810,7 +848,7 @@ function AddLocationModal({
               type="submit"
               className="flex-1 px-4 py-2.5 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
             >
-              Add Location
+              Add Space
             </button>
           </div>
         </form>
@@ -1519,24 +1557,170 @@ export default function Home() {
                   <p className="text-sm text-[rgb(var(--muted-foreground))] mb-2 relative z-10">View Global Inventory</p>
                 </button>
 
-                {locations.map(loc => {
-                  const locProducts = products.filter(p => p.locationId === loc.id);
-                  const expiring = locProducts.filter(p => p.status === 'expiring-soon').length;
-                  const expired = locProducts.filter(p => p.status === 'expired').length;
+                {/* Top-level spaces - enhanced folder style */}
+                {locations.filter(loc => !loc.parentId).map((parentLoc, index) => {
+                  const parentProducts = products.filter(p => p.locationId === parentLoc.id);
+                  const parentExpiring = parentProducts.filter(p => p.status === 'expiring-soon').length;
+                  const parentExpired = parentProducts.filter(p => p.status === 'expired').length;
+
+                  // Get child spaces
+                  const childSpaces = locations.filter(loc => loc.parentId === parentLoc.id);
+                  const hasChildren = childSpaces.length > 0;
+
+                  // Count total products including children
+                  const childProductCount = childSpaces.reduce((acc, child) =>
+                    acc + products.filter(p => p.locationId === child.id).length, 0
+                  );
+                  const totalProducts = parentProducts.length + childProductCount;
+
+                  // Check if this space is expanded
+                  const isExpanded = activeLocationId === parentLoc.id && inventoryViewMode === 'grid';
+
+                  // Generate gradient colors - use index for unique colors
+                  const gradients = [
+                    'from-blue-500/20 to-cyan-500/10',
+                    'from-purple-500/20 to-pink-500/10',
+                    'from-amber-500/20 to-orange-500/10',
+                    'from-green-500/20 to-emerald-500/10',
+                    'from-rose-500/20 to-red-500/10',
+                    'from-indigo-500/20 to-violet-500/10',
+                    'from-teal-500/20 to-cyan-500/10',
+                  ];
+                  const gradientIndex = index % gradients.length;
 
                   return (
-                    <LocationCard
-                      key={loc.id}
-                      location={loc}
-                      productCount={locProducts.length}
-                      expiringCount={expiring}
-                      expiredCount={expired}
-                      onClick={() => {
-                        setInventoryViewMode('list');
-                        setActiveLocationId(loc.id);
-                        setSelectedLocation(loc.id); // Set the filter for list
-                      }}
-                    />
+                    <div key={parentLoc.id} className="col-span-1">
+                      <div className={`relative bg-gradient-to-br ${gradients[gradientIndex]} bg-[rgb(var(--card))] rounded-2xl p-4 shadow-sm border border-[rgb(var(--border))] hover:shadow-lg transition-all duration-300 group`}>
+                        {/* Main card area - clickable */}
+                        <button
+                          onClick={() => {
+                            if (hasChildren) {
+                              if (isExpanded) {
+                                setActiveLocationId(null);
+                              } else {
+                                setActiveLocationId(parentLoc.id);
+                              }
+                            } else {
+                              setInventoryViewMode('list');
+                              setActiveLocationId(parentLoc.id);
+                              setSelectedLocation(parentLoc.id);
+                            }
+                          }}
+                          className="w-full text-left"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-3xl">{parentLoc.icon}</span>
+                            {hasChildren && (
+                              <svg className={`w-5 h-5 text-[rgb(var(--muted-foreground))] transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            )}
+                          </div>
+
+                          <h3 className="text-lg font-bold text-[rgb(var(--foreground))] mb-1 group-hover:text-[rgb(var(--primary))] transition-colors">
+                            {parentLoc.name}
+                          </h3>
+
+                          {/* Mini sub-space preview icons */}
+                          {hasChildren && (
+                            <div className="flex items-center gap-1 mb-2">
+                              {childSpaces.slice(0, 4).map(child => (
+                                <span key={child.id} className="w-7 h-7 rounded-lg bg-[rgb(var(--secondary))] flex items-center justify-center text-sm" title={child.name}>
+                                  {child.icon}
+                                </span>
+                              ))}
+                              {childSpaces.length > 4 && (
+                                <span className="w-7 h-7 rounded-lg bg-[rgb(var(--muted))] flex items-center justify-center text-xs font-medium">
+                                  +{childSpaces.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Description or sub-space count */}
+                          {!hasChildren && (
+                            <p className="text-xs text-[rgb(var(--muted-foreground))]">
+                              {totalProducts === 0 ? '✨ Empty space' : parentLoc.description || 'Click to view'}
+                            </p>
+                          )}
+
+                          {/* Status badges */}
+                          {(parentExpiring > 0 || parentExpired > 0) && (
+                            <div className="flex gap-1 mt-2">
+                              {parentExpired > 0 && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                                  {parentExpired} 🔴
+                                </span>
+                              )}
+                              {parentExpiring > 0 && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                                  {parentExpiring} 🟡
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </button>
+
+                        {/* Quick Add Sub-Space Button - bottom right */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsLocationModalOpen(true);
+                          }}
+                          className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))]/80 flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                          title="Add sub-space"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Expanded sub-spaces */}
+                      {isExpanded && hasChildren && (
+                        <div className="mt-2 p-3 bg-[rgb(var(--secondary))] rounded-xl border border-[rgb(var(--border))] space-y-2">
+                          {/* View all products in parent */}
+                          <button
+                            onClick={() => {
+                              setInventoryViewMode('list');
+                              setSelectedLocation(parentLoc.id);
+                            }}
+                            className="w-full p-3 bg-[rgb(var(--card))] rounded-xl border border-[rgb(var(--border))] hover:bg-[rgb(var(--muted))] transition-colors text-left flex items-center gap-3"
+                          >
+                            <span className="text-xl">📦</span>
+                            <div>
+                              <p className="font-medium text-sm">All in {parentLoc.name}</p>
+                              <p className="text-xs text-[rgb(var(--muted-foreground))]">{parentProducts.length} products</p>
+                            </div>
+                          </button>
+
+                          {/* Sub-spaces */}
+                          {childSpaces.map(childLoc => {
+                            const childProducts = products.filter(p => p.locationId === childLoc.id);
+                            return (
+                              <button
+                                key={childLoc.id}
+                                onClick={() => {
+                                  setInventoryViewMode('list');
+                                  setActiveLocationId(childLoc.id);
+                                  setSelectedLocation(childLoc.id);
+                                }}
+                                className="w-full p-3 bg-[rgb(var(--card))] rounded-xl border border-[rgb(var(--border))] hover:bg-[rgb(var(--muted))] transition-colors text-left flex items-center gap-3"
+                              >
+                                <span className="text-xl">{childLoc.icon}</span>
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{childLoc.name}</p>
+                                  <p className="text-xs text-[rgb(var(--muted-foreground))]">{childProducts.length} products</p>
+                                </div>
+                                <svg className="w-4 h-4 text-[rgb(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

@@ -50,6 +50,11 @@ interface ProductStore {
     getProductsByLocation: (locationId: string) => Product[];
     getExpiringProducts: (days: number) => Product[];
 
+    // Nested spaces helpers
+    getTopLevelSpaces: () => Location[];
+    getChildSpaces: (parentId: string) => Location[];
+    getSpaceHierarchyName: (locationId: string) => string;
+
     // Data Management
     importData: (data: { products: Product[], categories: Category[], locations: Location[] }) => void;
 
@@ -219,6 +224,29 @@ export const useProductStore = create<ProductStore>()(
                         status: calculateStatus(product.expirationDate),
                     })),
                 }));
+            },
+
+            // Nested spaces helpers
+            getTopLevelSpaces: () => {
+                return get().locations.filter((loc) => !loc.parentId);
+            },
+
+            getChildSpaces: (parentId) => {
+                return get().locations.filter((loc) => loc.parentId === parentId);
+            },
+
+            getSpaceHierarchyName: (locationId) => {
+                const locations = get().locations;
+                const location = locations.find((l) => l.id === locationId);
+                if (!location) return '';
+
+                if (location.parentId) {
+                    const parent = locations.find((l) => l.id === location.parentId);
+                    if (parent) {
+                        return `${parent.name} > ${location.name}`;
+                    }
+                }
+                return location.name;
             },
         }),
         {
