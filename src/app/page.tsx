@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { useProductStore } from '@/store/productStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { Product, Category, Location } from '@/types';
@@ -40,6 +39,18 @@ const EditIcon = () => (
   </svg>
 );
 
+const HeartIcon = () => (
+  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+);
+
 const FolderIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -62,43 +73,6 @@ const SettingsIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-
-const HeartIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-  </svg>
-);
-
-const SearchIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
-
-const ChartIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-
-const MenuIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-  </svg>
-);
-
-
-const CloseMenuIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
 
@@ -1054,7 +1028,7 @@ function SettingsModal({
                     } else {
                       alert(t('invalidFile'));
                     }
-                  } catch (error) {
+                  } catch {
                     alert(t('invalidFile'));
                   }
                 };
@@ -1221,18 +1195,24 @@ export default function Home() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'expiring-soon' | 'expired' | 'safe'>('all');
   const [inventoryViewMode, setInventoryViewMode] = useState<'grid' | 'list'>('grid');
   const [activeLocationId, setActiveLocationId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'date' | 'name' | 'status'>('date');
-  const [showFilters, setShowFilters] = useState(false);
+  const [sortBy] = useState<'date' | 'name' | 'status'>('date');
 
-  // Hydration check
+  // Hydration check and splash screen
   const [mounted, setMounted] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+
   useEffect(() => {
     setMounted(true);
+    // Hide splash screen after 2 seconds
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   // Notifications
@@ -1240,11 +1220,11 @@ export default function Home() {
     if (mounted && notifications.enabled) {
       const checkNotifications = async () => {
         const expiringItems = products.filter(p => p.status === 'expiring-soon');
-        if (expiringItems.length > 0) {
-          notificationService.sendNotification(
-            t('expiringSoon'),
-            { body: `${expiringItems.length} products match your notification criteria.` }
-          );
+        if (expiringItems.length > 0 && notificationService.isSupported() && notificationService.getPermission() === 'granted') {
+          notificationService.sendNotification({
+            title: t('expiringSoon'),
+            body: `${expiringItems.length} products expiring soon`
+          });
         }
       };
       // Check once on mount/change, practically we might want a timer or logic to not spam
@@ -1257,6 +1237,37 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--background))]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[rgb(var(--primary))]"></div>
+      </div>
+    );
+  }
+
+  // Splash Screen
+  if (showSplash) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 text-white">
+        {/* Logo */}
+        <div className="animate-bounce mb-6">
+          <div className="w-24 h-24 bg-white/20 backdrop-blur-lg rounded-3xl flex items-center justify-center shadow-2xl border border-white/30">
+            <span className="text-5xl">📦</span>
+          </div>
+        </div>
+
+        {/* App Name */}
+        <h1 className="text-4xl font-bold tracking-tight mb-2 animate-fade-in">
+          ExpireTrack
+        </h1>
+
+        {/* Tagline */}
+        <p className="text-white/80 text-lg mb-8 animate-fade-in">
+          Never waste again
+        </p>
+
+        {/* Loading dots */}
+        <div className="flex gap-2">
+          <div className="w-3 h-3 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-3 h-3 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-3 h-3 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
+        </div>
       </div>
     );
   }
@@ -1593,7 +1604,7 @@ export default function Home() {
             {/* Thank You */}
             <div className="text-center p-6 bg-[rgb(var(--card))] rounded-2xl border border-[rgb(var(--border))]">
               <p className="text-[rgb(var(--muted-foreground))] italic">
-                "{t('contributionThanks')}"
+                {t('contributionThanks')}
               </p>
             </div>
           </div>
