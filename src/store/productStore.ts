@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { Product, Category, Location, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS, ProductStatus } from '@/types';
+import { indexedDBStorage } from '@/lib/storage';
 
 // Calculate product status based on expiration date
 export function calculateStatus(expirationDate: string): ProductStatus {
@@ -155,15 +156,27 @@ export const useProductStore = create<ProductStore>()(
             },
 
             deleteLocation: (id) => {
-                set((state) => ({
-                    locations: state.locations.filter((location) => location.id !== id),
-                    // Move products from deleted location to first location
-                    products: state.products.map((product) =>
-                        product.locationId === id
-                            ? { ...product, locationId: state.locations[0]?.id || 'kitchen' }
-                            : product
-                    ),
-                }));
+                console.log('deleteLocation function called with id:', id);
+                set((state) => {
+                    console.log('Current locations:', state.locations.length);
+                    const remainingLocations = state.locations.filter((location) => location.id !== id);
+                    console.log('Remaining locations after filter:', remainingLocations.length);
+                    const fallbackLocationId = remainingLocations[0]?.id || 'kitchen';
+                    console.log('Fallback location ID:', fallbackLocationId);
+
+                    const newState = {
+                        locations: remainingLocations,
+                        // Move products from deleted location to first remaining location
+                        products: state.products.map((product) =>
+                            product.locationId === id
+                                ? { ...product, locationId: fallbackLocationId }
+                                : product
+                        ),
+                    };
+                    console.log('New state prepared, locations count:', newState.locations.length);
+                    return newState;
+                });
+                console.log('deleteLocation completed');
             },
 
             importData: (data) => {
@@ -210,6 +223,33 @@ export const useProductStore = create<ProductStore>()(
         }),
         {
             name: 'product-expiration-store',
+            storage: createJSONStorage(() => indexedDBStorage),
+            onRehydrateStorage: () => (state) => {
+                // Migration: Check if we have data in localStorage from previous version
+                if (typeof window !== 'undefined') {
+                    const localData = localStorage.getItem('product-expiration-store');
+                    // If IDB state provided no products (meaning it's empty/fresh) but we have localData
+                    if (localData && (!state || state.products.length === 0)) {
+                        try {
+                            const parsed = JSON.parse(localData);
+                            if (parsed.state && parsed.state.products && parsed.state.products.length > 0) {
+                                console.log("Migrating data from localStorage to IndexedDB...", parsed.state);
+                                // We need to set the state. useProductStore won't be fully ready here if we call it directly during its own creation?
+                                // Actually, since this runs after rehydration, the store is created. 
+                                // However, safe way is to just let the store update.
+                                // Use setTimeout to ensure we are out of the synchronous initialization phase
+                                setTimeout(() => {
+                                    useProductStore.setState(parsed.state);
+                                    // Clear legacy storage to free up space and avoid confusion
+                                    localStorage.removeItem('product-expiration-store');
+                                }, 0);
+                            }
+                        } catch (e) {
+                            console.error("Migration failed", e);
+                        }
+                    }
+                }
+            }
         }
     )
 );

@@ -1,5 +1,5 @@
 // Service Worker for ExpireTrack PWA
-const CACHE_NAME = 'expiretrack-v2';
+const CACHE_NAME = 'expiretrack-v3';
 const urlsToCache = [
     '/',
     '/stats',

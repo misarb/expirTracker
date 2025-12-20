@@ -6,6 +6,8 @@ import { useProductStore } from '@/store/productStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { Product, Category, Location } from '@/types';
 import { notificationService } from '@/lib/notifications';
+import { useI18n, TranslationKey } from '@/lib/i18n';
+import { compressImage } from '@/lib/imageUtils';
 
 // Icons as SVG components
 const PlusIcon = () => (
@@ -93,11 +95,38 @@ const MenuIcon = () => (
   </svg>
 );
 
+
 const CloseMenuIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
+
+const PayPalIcon = () => (
+  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19a.803.803 0 0 0-.795.68l-.942 5.984a.642.642 0 0 1-.633.542z" />
+  </svg>
+);
+
+// Donation platform data
+const DONATION_PLATFORMS = [
+  {
+    name: 'Ko-fi',
+    icon: HeartIcon,
+    description: 'One-time or monthly support ❤️',
+    color: 'from-pink-500 to-rose-500',
+    url: 'https://ko-fi.com/misarb',
+    placeholder: false,
+  },
+  {
+    name: 'PayPal',
+    icon: PayPalIcon,
+    description: 'Direct PayPal donation 💰',
+    color: 'from-blue-500 to-indigo-600',
+    url: 'https://paypal.me/LBoulbalah',
+    placeholder: false,
+  },
+];
 
 // Status Badge Component
 function StatusBadge({ status }: { status: Product['status'] }) {
@@ -146,7 +175,7 @@ function ProductCard({ product, category, onEdit, onDelete }: {
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="text-2xl">{category?.icon || '📦'}</span>
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--muted-foreground))]">
-                {category?.name || 'Unknown'}
+                {category ? (t(`cat_${category.id}` as TranslationKey) !== `cat_${category.id}` ? t(`cat_${category.id}` as TranslationKey) : category.name) : 'Unknown'}
               </span>
             </div>
             <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] truncate mb-1">
@@ -213,6 +242,7 @@ function LocationCard({
   expiredCount: number;
   onClick: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       onClick={onClick}
@@ -236,7 +266,7 @@ function LocationCard({
         )}
       </div>
       <h3 className="text-lg font-bold text-[rgb(var(--foreground))] mb-1 group-hover:text-[rgb(var(--primary))] transition-colors">
-        {location.name}
+        {t(`loc_${location.id}` as TranslationKey) !== `loc_${location.id}` ? t(`loc_${location.id}` as TranslationKey) : location.name}
       </h3>
       <p className="text-sm text-[rgb(var(--muted-foreground))] mb-2">
         {location.description}
@@ -327,18 +357,17 @@ function ProductModal({
     }
   }, [editingProduct, categories, locations, isOpen, defaultLocationId]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5000000) { // 5MB limit
-        alert("File too large (max 5MB)");
-        return;
+      try {
+        // Compress image before saving
+        const compressedImage = await compressImage(file);
+        setFormData(prev => ({ ...prev, image: compressedImage }));
+      } catch (error) {
+        console.error("Error compressing image:", error);
+        alert("Failed to process image. Please try another one.");
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -408,10 +437,23 @@ function ProductModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-lg p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6 flex items-center gap-2">
-          {editingProduct ? `✏️ ${t('editProduct')}` : `➕ ${t('addProduct')}`}
-        </h2>
+      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+        {/* Header with Close Button */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">
+            {editingProduct ? `✏️ ${t('editProduct')}` : `➕ ${t('addProduct')}`}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-[rgb(var(--secondary))] transition-colors text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))]"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Product Name */}
@@ -534,7 +576,7 @@ function ProductModal({
               >
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
-                    {cat.name}
+                    {t(`cat_${cat.id}` as TranslationKey) !== `cat_${cat.id}` ? t(`cat_${cat.id}` as TranslationKey) : cat.name}
                   </option>
                 ))}
               </select>
@@ -552,7 +594,7 @@ function ProductModal({
               >
                 {locations.map((loc) => (
                   <option key={loc.id} value={loc.id}>
-                    {loc.name}
+                    {t(`loc_${loc.id}` as TranslationKey) !== `loc_${loc.id}` ? t(`loc_${loc.id}` as TranslationKey) : loc.name}
                   </option>
                 ))}
               </select>
@@ -688,7 +730,16 @@ function AddLocationModal({
     description: '',
   });
 
-  const emojiOptions = ['🏠', '🍳', '🚿', '💊', '🛏️', '🏢', '🚗', '📦', '❄️', '🧊', '🗄️', '📍'];
+  const emojiOptions = [
+    // Rooms & Spaces
+    '🏠', '🍳', '🚿', '💊', '🛏️', '🏢', '🚗', '🏡', '🛋️', '🪴',
+    // Storage & Organization
+    '📦', '🗄️', '📍', '🧊', '❄️', '🗃️', '📚', '🧰', '🎒', '👜',
+    // Food & Kitchen Related
+    '🍽️', '🥘', '☕', '🍞', '🧊', '🥗', '🍱', '🧃',
+    // General Useful
+    '⭐', '🔵', '🟢', '🟡', '🟣', '🟠', '⚫', '⚪'
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -703,9 +754,22 @@ function AddLocationModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in">
-        <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6">
-          Add New Location
-        </h2>
+        {/* Header with Close Button */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">
+            Add New Location
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-[rgb(var(--secondary))] transition-colors text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))]"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -726,20 +790,22 @@ function AddLocationModal({
             <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-1.5">
               Icon
             </label>
-            <div className="flex flex-wrap gap-2">
-              {emojiOptions.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, icon: emoji })}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-all ${formData.icon === emoji
-                    ? 'bg-[rgb(var(--primary))] ring-2 ring-[rgb(var(--primary))] ring-offset-2'
-                    : 'bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))]'
-                    }`}
-                >
-                  {emoji}
-                </button>
-              ))}
+            <div className="max-h-32 overflow-y-auto border border-[rgb(var(--border))] rounded-xl p-2">
+              <div className="grid grid-cols-6 gap-2">
+                {emojiOptions.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, icon: emoji })}
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-all ${formData.icon === emoji
+                      ? 'bg-[rgb(var(--primary))] ring-2 ring-[rgb(var(--primary))] ring-offset-2 scale-110'
+                      : 'bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] hover:scale-105'
+                      }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -780,15 +846,18 @@ function AddLocationModal({
 // Settings Modal with Notifications
 function SettingsModal({
   isOpen,
-  onClose
+  onClose,
+  inline = false
 }: {
   isOpen: boolean;
   onClose: () => void;
+  inline?: boolean;
 }) {
   const { t } = useI18n();
-  const { notifications, setNotificationsEnabled, importSettings, ...settingsState } = useSettingsStore();
+  const { notifications, setNotificationsEnabled, setNotificationDays, importSettings, ...settingsState } = useSettingsStore();
   const { locations, deleteLocation, products, categories, importData } = useProductStore();
   const [permissionStatus, setPermissionStatus] = useState<string>('default');
+  const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && notificationService.isSupported()) {
@@ -808,204 +877,325 @@ function SettingsModal({
     setNotificationsEnabled(false);
   };
 
-  const handleExport = () => {
-    const data = {
-      products,
-      categories,
-      locations,
-      settings: { notifications, ...settingsState }
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `expiretrack-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    alert(t('exportSuccess'));
-  };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!confirm(t('importWarning'))) {
-      e.target.value = ''; // Reset input
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data.products && data.categories && data.locations) {
-          importData({
-            products: data.products,
-            categories: data.categories,
-            locations: data.locations
-          });
-          if (data.settings) {
-            importSettings(data.settings);
-          }
-          alert(t('importSuccess'));
-          onClose();
-        } else {
-          alert(t('invalidFile'));
-        }
-      } catch (error) {
-        console.error('Import error:', error);
-        alert(t('invalidFile'));
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = ''; // Reset input
-  };
-
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
+  const content = (
+    <div className={`space-y-8 ${inline ? '' : 'p-6'}`}>
+      {!inline && (
         <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-6 flex items-center gap-2">
           <SettingsIcon />
           {t('settings')}
         </h2>
+      )}
 
-        <div className="space-y-8">
-          {/* Notifications Section */}
-          <div>
-            <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
-              <BellIcon />
-              {t('notifications')}
-            </h3>
+      {/* Notifications Section */}
+      <div>
+        <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
+          <BellIcon />
+          {t('notifications')}
+        </h3>
 
-            {!notificationService.isSupported() ? (
-              <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl text-yellow-800 dark:text-yellow-200 text-sm">
-                ⚠️ Your browser doesn&apos;t support notifications.
-              </div>
-            ) : permissionStatus === 'denied' ? (
-              <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl text-red-800 dark:text-red-200 text-sm">
-                ❌ Notifications are blocked.
-              </div>
-            ) : permissionStatus === 'granted' && notifications.enabled ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-800 dark:text-green-200 text-sm flex items-center gap-2">
-                  ✅ Notifications are enabled!
-                </div>
-                <div>
-                  <button
-                    onClick={handleDisableNotifications}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
-                  >
-                    {t('disable')}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-[rgb(var(--muted-foreground))]">
-                  Enable notifications to get reminders.
-                </p>
-
-                <button
-                  onClick={handleEnableNotifications}
-                  className="w-full px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium flex items-center justify-center gap-2"
-                >
-                  <BellIcon />
-                  {t('enableNotifications')}
-                </button>
-              </div>
-            )}
+        {!notificationService.isSupported() ? (
+          <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl text-yellow-800 dark:text-yellow-200 text-sm">
+            ⚠️ Your browser doesn&apos;t support notifications.
           </div>
+        ) : permissionStatus === 'denied' ? (
+          <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl text-red-800 dark:text-red-200 text-sm">
+            ❌ Notifications are blocked.
+          </div>
+        ) : permissionStatus === 'granted' && notifications.enabled ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-800 dark:text-green-200 text-sm flex items-center gap-2">
+              ✅ Notifications are enabled!
+            </div>
+            {/* Days before setting */}
+            <div className="pl-2">
+              <label className="text-sm font-medium text-[rgb(var(--muted-foreground))] mb-2 block">
+                Notify me before expiration (days):
+              </label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 5, 7].map(days => (
+                  <button
+                    key={days}
+                    onClick={() => {
+                      const current = notifications.daysBefore;
+                      const newDays = current.includes(days)
+                        ? current.filter(d => d !== days)
+                        : [...current, days];
+                      setNotificationDays(newDays);
+                    }}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${notifications.daysBefore.includes(days)
+                      ? 'bg-[rgb(var(--primary))] text-white shadow'
+                      : 'bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]'
+                      }`}
+                  >
+                    {days}d
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          {/* Manage Locations */}
-          <div>
-            <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
-              <span className="text-xl">📍</span>
-              {t('manageLocations')}
-            </h3>
-            <div className="space-y-2">
-              {locations.map(loc => (
-                <div key={loc.id} className="flex items-center justify-between p-3 bg-[rgb(var(--secondary))] rounded-xl border border-[rgb(var(--border))]">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{loc.icon}</span>
-                    <div>
-                      <p className="font-medium text-[rgb(var(--foreground))]">{loc.name}</p>
-                    </div>
-                  </div>
-                  {locations.length > 1 && (
-                    <button
-                      onClick={() => {
-                        if (confirm(`${t('delete')} ${loc.name}?`)) {
-                          deleteLocation(loc.id);
-                        }
-                      }}
-                      className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      title={t('delete')}
-                    >
-                      <TrashIcon />
-                    </button>
-                  )}
-                </div>
-              ))}
-              {locations.length <= 1 && (
-                <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last location.</p>
+            <div>
+              <button
+                onClick={handleDisableNotifications}
+                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
+              >
+                {t('disable')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-[rgb(var(--muted-foreground))]">
+              Enable notifications to get reminders.
+            </p>
+
+            <button
+              onClick={handleEnableNotifications}
+              className="w-full px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium flex items-center justify-center gap-2"
+            >
+              <BellIcon />
+              {t('enableNotifications')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Manage Locations */}
+      <div>
+        <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
+          <span className="text-xl">📍</span>
+          {t('manageLocations')}
+        </h3>
+        <div className="space-y-2">
+          {locations.map(loc => (
+            <div key={loc.id} className="flex items-center justify-between p-3 bg-[rgb(var(--secondary))] rounded-xl border border-[rgb(var(--border))]">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-2xl">{loc.icon}</span>
+                <h3 className="font-medium text-[rgb(var(--foreground))]">
+                  {t(`loc_${loc.id}` as TranslationKey) !== `loc_${loc.id}` ? t(`loc_${loc.id}` as TranslationKey) : loc.name}
+                </h3>
+              </div>
+              {locations.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Delete button clicked for:', loc.name, loc.id);
+                    setLocationToDelete(loc.id);
+                  }}
+                  className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                  title={t('delete')}
+                >
+                  <TrashIcon />
+                </button>
               )}
             </div>
-          </div>
+          ))}
+          {locations.length <= 1 && (
+            <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last location.</p>
+          )}
+        </div>
+      </div>
 
-          {/* Data Management */}
-          <div>
-            <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
-              <span className="text-xl">💾</span>
-              {t('dataManagement')}
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleExport}
-                className="p-3 bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] rounded-xl border border-[rgb(var(--border))] flex flex-col items-center gap-2 transition-colors"
+      {/* Data Management */}
+      <div>
+        <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
+          <span className="text-xl">💾</span>
+          {t('dataManagement')}
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => {
+              const data = {
+                products,
+                categories,
+                locations,
+                settings: { notifications, ...settingsState }
+              };
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `expiretrack-backup-${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              alert(t('exportSuccess'));
+            }}
+            className="p-3 bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] rounded-xl border border-[rgb(var(--border))] flex flex-col items-center gap-2 transition-colors"
+          >
+            <span className="text-2xl">⬇️</span>
+            <span className="font-medium text-sm text-[rgb(var(--foreground))]">{t('exportData')}</span>
+          </button>
+          <label className="p-3 bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] rounded-xl border border-[rgb(var(--border))] flex flex-col items-center gap-2 transition-colors cursor-pointer">
+            <span className="text-2xl">⬆️</span>
+            <span className="font-medium text-sm text-[rgb(var(--foreground))]">{t('importData')}</span>
+            <input
+              type="file"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!confirm(t('importWarning'))) {
+                  e.target.value = '';
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  try {
+                    const data = JSON.parse(event.target?.result as string);
+                    if (data.products && data.categories && data.locations) {
+                      importData(data);
+                      if (data.settings) importSettings(data.settings);
+                      alert(t('importSuccess'));
+                      if (onClose) onClose();
+                    } else {
+                      alert(t('invalidFile'));
+                    }
+                  } catch (error) {
+                    alert(t('invalidFile'));
+                  }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+              }}
+              className="hidden"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Support & Donation Section */}
+      <div className="bg-[rgb(var(--card))] rounded-2xl p-5 shadow-sm border border-[rgb(var(--border))] mt-6">
+        <h3 className="text-sm font-semibold text-[rgb(var(--muted-foreground))] uppercase tracking-wider mb-4 flex items-center gap-2">
+          ❤️ {t('supportTitle')}
+        </h3>
+        <div className="space-y-3">
+          <p className="text-sm text-[rgb(var(--foreground))] mb-2">
+            {t('supportSubtitle')}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {DONATION_PLATFORMS.map((platform) => (
+              <a
+                key={platform.name}
+                href={platform.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] transition-colors gap-2 text-center"
               >
-                <span className="text-2xl">⬇️</span>
-                <span className="font-medium text-sm text-[rgb(var(--foreground))]">{t('exportData')}</span>
-              </button>
-              <label className="p-3 bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] rounded-xl border border-[rgb(var(--border))] flex flex-col items-center gap-2 transition-colors cursor-pointer">
-                <span className="text-2xl">⬆️</span>
-                <span className="font-medium text-sm text-[rgb(var(--foreground))]">{t('importData')}</span>
-                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-              </label>
-            </div>
-          </div>
-
-          {/* About Section */}
-          <div className="pt-4 border-t border-[rgb(var(--border))]">
-            <h3 className="text-sm font-medium text-[rgb(var(--muted-foreground))] mb-2">{t('about')}</h3>
-            <p className="text-xs text-[rgb(var(--muted-foreground))]">
-              ExpireTrack v1.0 • {t('neverWaste')}
-            </p>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${platform.color} text-white`}>
+                  <platform.icon />
+                </div>
+                <span className="text-xs font-semibold text-[rgb(var(--foreground))]">{platform.name}</span>
+              </a>
+            ))}
           </div>
         </div>
+      </div>
 
+      {/* About Section */}
+      <div className="pt-4 border-t border-[rgb(var(--border))] mt-6">
+        <h3 className="text-sm font-medium text-[rgb(var(--muted-foreground))] mb-2">{t('about')}</h3>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">
+          ExpireTrack v1.1.0 • {t('neverWaste')}
+        </p>
+      </div>
+
+      {!inline && (
         <button
           onClick={onClose}
           className="mt-6 w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
         >
           {t('back')}
         </button>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {locationToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setLocationToDelete(null)} />
+          <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-sm p-6 animate-fade-in border border-[rgb(var(--border))]">
+            <h3 className="text-lg font-bold text-[rgb(var(--foreground))] mb-3">
+              {t('delete')} {locations.find(l => l.id === locationToDelete)?.name}?
+            </h3>
+            <p className="text-sm text-[rgb(var(--muted-foreground))] mb-6">
+              This action cannot be undone. Products in this location will be moved to another location.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setLocationToDelete(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] text-[rgb(var(--foreground))] font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('User confirmed deletion via custom modal');
+                  deleteLocation(locationToDelete);
+                  setLocationToDelete(null);
+                }}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (inline) return content;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md animate-fade-in max-h-[90vh] overflow-y-auto">
+        {content}
       </div>
     </div>
   );
 }
 
-// Stats Card Component
-function StatsCard({ title, count, icon, color }: {
+// Stats Card Component - Interactive
+function StatsCard({ title, count, icon, color, onClick, gradientFrom, gradientTo }: {
   title: string;
   count: number;
   icon: string;
   color: string;
+  onClick?: () => void;
+  gradientFrom?: string;
+  gradientTo?: string;
 }) {
+  const hasGradient = gradientFrom && gradientTo;
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full text-left rounded-2xl p-4 shadow-sm border border-[rgb(var(--border))] cursor-pointer hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 hover:border-[rgb(var(--primary))]/30 ${hasGradient ? 'relative overflow-hidden' : 'bg-[rgb(var(--card))]'
+          }`}
+        style={hasGradient ? {
+          background: `linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%)`
+        } : undefined}
+      >
+        {hasGradient && <div className="absolute inset-0 bg-white/10 dark:bg-black/10" />}
+        <div className="flex items-center justify-between relative z-10">
+          <div>
+            <p className={`text-xs font-medium mb-1 ${hasGradient ? 'text-white/90' : 'text-[rgb(var(--muted-foreground))]'}`}>{title}</p>
+            <p className="text-2xl font-bold mt-0.5" style={{ color: hasGradient ? 'white' : color }}>{count}</p>
+          </div>
+          <span className="text-2xl">{icon}</span>
+        </div>
+      </button>
+    );
+  }
+
   return (
     <div className="bg-[rgb(var(--card))] rounded-2xl p-4 shadow-sm border border-[rgb(var(--border))]">
       <div className="flex items-center justify-between">
@@ -1019,591 +1209,533 @@ function StatsCard({ title, count, icon, color }: {
   );
 }
 
-import { useI18n } from '@/lib/i18n';
 
-// ... (existing imports)
-
-// Main Page Component
 export default function Home() {
-  const { t, lang: language, setLang: setLanguage } = useI18n();
-  const { products, categories, locations, deleteProduct, refreshStatuses } = useProductStore();
-  const { theme, toggleTheme, notifications, notifiedProducts, addNotifiedProduct } = useSettingsStore();
+  const { t, language, setLanguage } = useI18n();
+  const { products, categories, locations, deleteProduct } = useProductStore();
+  const { theme, setTheme, notifications } = useSettingsStore();
+
+  const [currentView, setCurrentView] = useState<'home' | 'inventory' | 'settings' | 'support'>('home');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'locations' | 'all'>('locations');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'expiring-soon' | 'expired' | 'safe'>('all');
+  const [inventoryViewMode, setInventoryViewMode] = useState<'grid' | 'list'>('grid');
+  const [activeLocationId, setActiveLocationId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'status'>('date');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
+  // Hydration check
   const [mounted, setMounted] = useState(false);
-
-
-  // Check for expiring products and send notifications
-  const checkNotifications = useCallback(() => {
-    if (!notifications.enabled) return;
-
-    const notifiedSet = new Set(notifiedProducts);
-    const newNotified = notificationService.checkExpiringProducts(
-      products.map(p => ({
-        id: p.id,
-        name: p.name,
-        expirationDate: p.expirationDate,
-        status: p.status,
-      })),
-      notifiedSet
-    );
-
-    // Add any new notifications to the store
-    newNotified.forEach(key => {
-      if (!notifiedSet.has(key)) {
-        addNotifiedProduct(key);
-      }
-    });
-  }, [products, notifications.enabled, notifiedProducts, addNotifiedProduct]);
-
   useEffect(() => {
     setMounted(true);
-    refreshStatuses();
-  }, [refreshStatuses]);
+  }, []);
 
-  // Check notifications on mount and when products change
+  // Notifications
   useEffect(() => {
     if (mounted && notifications.enabled) {
+      const checkNotifications = async () => {
+        const expiringItems = products.filter(p => p.status === 'expiring-soon');
+        if (expiringItems.length > 0) {
+          notificationService.sendNotification(
+            t('expiringSoon'),
+            { body: `${expiringItems.length} products match your notification criteria.` }
+          );
+        }
+      };
+      // Check once on mount/change, practically we might want a timer or logic to not spam
+      // For now, simple check
       checkNotifications();
     }
-  }, [mounted, notifications.enabled, products, checkNotifications]);
+  }, [mounted, products, notifications]);
 
-  // Calculate stats per location
-  const locationStats = useMemo(() => {
-    return locations.map(location => {
-      const locationProducts = products.filter(p => p.locationId === location.id);
-      return {
-        location,
-        total: locationProducts.length,
-        expiring: locationProducts.filter(p => p.status === 'expiring-soon').length,
-        expired: locationProducts.filter(p => p.status === 'expired').length,
-      };
-    });
-  }, [locations, products]);
-
-  // Don't render until mounted
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--background))]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[rgb(var(--primary))]"></div>
       </div>
     );
   }
 
-  // Calculate global stats
-  const safeProducts = products.filter(p => p.status === 'safe');
-  const expiringProducts = products.filter(p => p.status === 'expiring-soon');
-  const expiredProducts = products.filter(p => p.status === 'expired');
+  // Filter Logic
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || p.categoryId === selectedCategory;
+    const matchesLocation = selectedLocation === 'all' || p.locationId === selectedLocation;
+    const matchesStatus = selectedStatus === 'all' ||
+      (selectedStatus === 'expiring-soon' && p.status === 'expiring-soon') ||
+      (selectedStatus === 'expired' && p.status === 'expired') ||
+      (selectedStatus === 'safe' && p.status === 'safe');
+    return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
+  }).sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'status') return a.status.localeCompare(b.status);
+    return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime();
+  });
 
-  // Get products for selected location or all
-  const displayProducts = selectedLocationId
-    ? products.filter(p => p.locationId === selectedLocationId)
-    : products;
+  // Stats Logic
+  const totalProducts = products.length;
+  const expiredProducts = products.filter(p => p.status === 'expired').length;
+  const expiringSoonProducts = products.filter(p => p.status === 'expiring-soon').length;
+  const safeProducts = products.filter(p => p.status === 'safe').length;
 
-  // Apply search and filters
-  const filteredProducts = displayProducts
-    .filter(p => {
-      // Status filter
-      if (filterStatus !== 'all' && p.status !== filterStatus) return false;
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const category = categories.find(c => c.id === p.categoryId);
-        const location = locations.find(l => l.id === p.locationId);
+  const renderContent = () => {
+    switch (currentView) {
+      case 'home':
         return (
-          p.name.toLowerCase().includes(query) ||
-          category?.name.toLowerCase().includes(query) ||
-          location?.name.toLowerCase().includes(query)
+          <div className="space-y-6 pb-24 animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-[rgb(var(--foreground))]">ExpireTrack</h1>
+                <p className="text-sm text-[rgb(var(--muted-foreground))]">{new Date().toLocaleDateString()}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]">
+                  {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                </button>
+                <button onClick={() => setLanguage(language === 'en' ? 'fr' : language === 'fr' ? 'ar' : 'en')} className="px-3 py-1 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] text-sm font-bold uppercase">
+                  {language}
+                </button>
+              </div>
+            </div>
+
+            {/* Stats Grid - Interactive */}
+            <div className="grid grid-cols-2 gap-4">
+              <StatsCard
+                title={t('totalProducts')}
+                count={totalProducts}
+                icon="📦"
+                color="#3b82f6"
+                gradientFrom="#3b82f6"
+                gradientTo="#1d4ed8"
+                onClick={() => {
+                  setCurrentView('inventory');
+                  setInventoryViewMode('list');
+                  setActiveLocationId(null);
+                  setSelectedLocation('all');
+                  setSelectedStatus('all');
+                }}
+              />
+              <StatsCard
+                title={t('expired')}
+                count={expiredProducts}
+                icon="🔴"
+                color="#ef4444"
+                gradientFrom="#ef4444"
+                gradientTo="#dc2626"
+                onClick={() => {
+                  setCurrentView('inventory');
+                  setInventoryViewMode('list');
+                  setActiveLocationId(null);
+                  setSelectedLocation('all');
+                  setSelectedStatus('expired');
+                }}
+              />
+              <StatsCard
+                title={t('expiringSoon')}
+                count={expiringSoonProducts}
+                icon="🟡"
+                color="#f59e0b"
+                gradientFrom="#f59e0b"
+                gradientTo="#d97706"
+                onClick={() => {
+                  setCurrentView('inventory');
+                  setInventoryViewMode('list');
+                  setActiveLocationId(null);
+                  setSelectedLocation('all');
+                  setSelectedStatus('expiring-soon');
+                }}
+              />
+              <StatsCard
+                title={t('safe')}
+                count={safeProducts}
+                icon="🟢"
+                color="#22c55e"
+                gradientFrom="#22c55e"
+                gradientTo="#16a34a"
+                onClick={() => {
+                  setCurrentView('inventory');
+                  setInventoryViewMode('list');
+                  setActiveLocationId(null);
+                  setSelectedLocation('all');
+                  setSelectedStatus('safe');
+                }}
+              />
+            </div>
+
+            {/* Quick Actions */}
+            <div>
+              <h2 className="text-lg font-bold mb-3 text-[rgb(var(--foreground))]">{t('quickActions')}</h2>
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+                <button onClick={() => { setIsProductModalOpen(true); setEditingProduct(null); }} className="flex flex-col items-center gap-2 p-4 bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl min-w-[100px] hover:bg-[rgb(var(--secondary))] transition-colors">
+                  <div className="bg-blue-100 text-blue-600 dark:bg-blue-900/30 p-3 rounded-xl"><PlusIcon /></div>
+                  <span className="text-xs font-medium">{t('addProduct')}</span>
+                </button>
+                <button onClick={() => setIsLocationModalOpen(true)} className="flex flex-col items-center gap-2 p-4 bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl min-w-[100px] hover:bg-[rgb(var(--secondary))] transition-colors">
+                  <div className="bg-purple-100 text-purple-600 dark:bg-purple-900/30 p-3 rounded-xl"><span className="text-lg">📍</span></div>
+                  <span className="text-xs font-medium">{t('addLocation')}</span>
+                </button>
+
+              </div>
+            </div>
+
+            {/* Recent Activity / Expiring Soon List */}
+            {expiringSoonProducts > 0 && (
+              <div>
+                <h2 className="text-lg font-bold mb-3 text-[rgb(var(--foreground))]">{t('expiringSoon')}</h2>
+                <div className="space-y-3">
+                  {products.filter(p => p.status === 'expiring-soon').slice(0, 3).map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      category={categories.find(c => c.id === product.categoryId)}
+                      onEdit={() => { setEditingProduct(product); setIsProductModalOpen(true); }}
+                      onDelete={() => deleteProduct(product.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         );
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'status':
-          const statusOrder = { 'expired': 0, 'expiring-soon': 1, 'safe': 2 };
-          return statusOrder[a.status] - statusOrder[b.status];
-        case 'date':
-        default:
-          return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime();
-      }
-    });
 
-  const selectedLocation = selectedLocationId
-    ? locations.find(l => l.id === selectedLocationId)
-    : null;
+      case 'inventory':
+        return (
+          <div className="space-y-4 pb-24 animate-fade-in">
+            {/* Navigation / Header for Inventory */}
+            <div className="sticky top-0 z-10 bg-[rgb(var(--background))/80] backdrop-blur-md pb-2 pt-2 transition-all flex items-center justify-between">
+              {inventoryViewMode === 'list' && activeLocationId ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setInventoryViewMode('grid');
+                      setActiveLocationId(null);
+                      setSelectedLocation('all'); // Reset filter
+                    }}
+                    className="p-2 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <div>
+                    <h2 className="text-lg font-bold">
+                      {locations.find(l => l.id === activeLocationId)?.name}
+                    </h2>
+                    <p className="text-xs text-[rgb(var(--muted-foreground))]">{products.filter(p => p.locationId === activeLocationId).length} items</p>
+                  </div>
+                </div>
+              ) : (
+                <h2 className="text-xl font-bold px-1">{t('locations')}</h2>
+              )}
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setIsProductModalOpen(true);
-  };
+              {/* Search Bar - Only show in list mode or maybe always? keeping simple for now */}
+              {inventoryViewMode === 'list' && (
+                <div className="relative flex-1 ml-4">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--muted-foreground))]">
+                    <SearchIcon />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={t('searchPlaceholder')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-[rgb(var(--secondary))] border-none text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] outline-none placeholder-[rgb(var(--muted-foreground))]"
+                  />
+                </div>
+              )}
+            </div>
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      deleteProduct(id);
+            {/* Content Switcher */}
+            {inventoryViewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* All Products Card */}
+                <button
+                  onClick={() => {
+                    setInventoryViewMode('list');
+                    setActiveLocationId(null); // Null means ALL
+                    setSelectedLocation('all');
+                  }}
+                  className="bg-[rgb(var(--card))] rounded-2xl p-6 shadow-sm border border-[rgb(var(--border))] hover:shadow-lg hover:scale-[1.02] transition-all duration-300 text-left w-full group relative overflow-hidden"
+                >
+                  <div className="absolute right-0 top-0 opacity-10 blur-xl w-32 h-32 bg-blue-500 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                  <div className="flex items-start justify-between mb-4 relative z-10">
+                    <span className="text-4xl">🏢</span>
+                    <div className="flex gap-1">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]">
+                        {products.length}
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-[rgb(var(--foreground))] mb-1 group-hover:text-[rgb(var(--primary))] transition-colors relative z-10">
+                    {t('allProducts')}
+                  </h3>
+                  <p className="text-sm text-[rgb(var(--muted-foreground))] mb-2 relative z-10">View Global Inventory</p>
+                </button>
+
+                {locations.map(loc => {
+                  const locProducts = products.filter(p => p.locationId === loc.id);
+                  const expiring = locProducts.filter(p => p.status === 'expiring-soon').length;
+                  const expired = locProducts.filter(p => p.status === 'expired').length;
+
+                  return (
+                    <LocationCard
+                      key={loc.id}
+                      location={loc}
+                      productCount={locProducts.length}
+                      expiringCount={expiring}
+                      expiredCount={expired}
+                      onClick={() => {
+                        setInventoryViewMode('list');
+                        setActiveLocationId(loc.id);
+                        setSelectedLocation(loc.id); // Set the filter for list
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* List View */}
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-20 opacity-50">
+                    <p className="text-4xl mb-4">🔍</p>
+                    <p>{t('noProductsFound')}</p>
+                    <button onClick={() => { setIsProductModalOpen(true); setEditingProduct(null); }} className="mt-4 text-[rgb(var(--primary))] font-medium">{t('addProduct')}</button>
+                  </div>
+                ) : (
+                  filteredProducts.map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      category={categories.find(c => c.id === product.categoryId)}
+                      onEdit={() => { setEditingProduct(product); setIsProductModalOpen(true); }}
+                      onDelete={() => deleteProduct(product.id)}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'support':
+        return (
+          <div className="space-y-6 pb-24 animate-fade-in">
+            {/* Hero Section */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 text-white mb-6 shadow-lg shadow-pink-500/30">
+                <HeartIcon />
+              </div>
+              <h1 className="text-3xl font-bold text-[rgb(var(--foreground))] mb-3">
+                {t('supportTitle')}
+              </h1>
+              <p className="text-lg text-[rgb(var(--muted-foreground))] max-w-sm mx-auto">
+                {t('supportSubtitle')}
+              </p>
+            </div>
+
+            {/* Story Section */}
+            <div className="bg-[rgb(var(--card))] rounded-2xl p-6 shadow-sm border border-[rgb(var(--border))]">
+              <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-3">
+                👋 Hi, I&apos;m the creator!
+              </h2>
+              <div className="space-y-3 text-sm text-[rgb(var(--muted-foreground))] text-left">
+                <p>
+                  I built ExpireTrack to solve a common problem: <strong className="text-[rgb(var(--foreground))]">wasted products</strong>.
+                </p>
+                <p>
+                  My goal is to make this the <strong className="text-[rgb(var(--foreground))]">simplest</strong> way to track everything in your home.
+                  I&apos;m working on features like:
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>📱 Mobile app (iOS/Android)</li>
+                  <li>📷 Barcode scanning</li>
+                  <li>👨‍👩‍👧‍👦 Family sharing</li>
+                </ul>
+                <p className="pt-2">
+                  Your support helps me keep the app <strong className="text-[rgb(var(--foreground))]">free</strong> and developing new features!
+                </p>
+              </div>
+            </div>
+
+            {/* Donation Platforms */}
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))] mb-4 text-center">
+              {t('waysToSupport')}
+            </h2>
+
+            <div className="grid gap-4">
+              {DONATION_PLATFORMS.map((platform) => (
+                <a
+                  key={platform.name}
+                  href={platform.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`group relative overflow-hidden rounded-2xl p-6 text-white transition-all hover:scale-[1.02] hover:shadow-xl`}
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br ${platform.color}`} />
+                  <div className="relative flex items-center gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                      <platform.icon />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">{platform.name === 'Ko-fi' ? t('buyMeCoffee') : platform.name}</h3>
+                      <p className="text-white/80 text-sm">{platform.description}</p>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            {/* Thank You */}
+            <div className="text-center p-6 bg-[rgb(var(--card))] rounded-2xl border border-[rgb(var(--border))]">
+              <p className="text-[rgb(var(--muted-foreground))] italic">
+                "{t('contributionThanks')}"
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'settings':
+        return <div className="pb-24 animate-fade-in"><SettingsModal isOpen={true} onClose={() => { }} inline={true} /></div>;
     }
   };
 
-  const handleCloseProductModal = () => {
-    setIsProductModalOpen(false);
-    setEditingProduct(null);
-  };
-
-  const handleLocationClick = (locationId: string) => {
-    setSelectedLocationId(locationId);
-  };
-
-  const handleBackToLocations = () => {
-    setSelectedLocationId(null);
-    setViewMode('locations');
-  };
-
   return (
-    <main className="min-h-screen pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[rgb(var(--background))/80] backdrop-blur-lg border-b border-[rgb(var(--border))]">
-        <div className="max-w-6xl mx-auto px-2 sm:px-4 py-2 sm:py-4 flex items-center justify-between gap-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-2xl flex-shrink-0">📦</span>
-            <h1 className="text-base sm:text-xl font-bold text-[rgb(var(--foreground))] truncate">ExpireTrack</h1>
-          </div>
+    <div className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))] transition-colors duration-300">
+      <div className="max-w-md mx-auto min-h-screen relative shadow-2xl bg-[rgb(var(--background))] overflow-hidden flex flex-col">
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto px-5 py-6 scrollbar-hide">
+          {renderContent()}
+        </main>
 
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            {/* Stats - hidden on very small */}
-            <Link
-              href="/stats"
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors hidden sm:flex"
-              title="Statistics"
-            >
-              <ChartIcon />
-            </Link>
+        {/* Bottom Navigation - Enhanced Design */}
+        <nav className="fixed bottom-0 z-40 bg-gradient-to-t from-[rgb(var(--card))] to-[rgb(var(--card))/95] backdrop-blur-xl border-t border-[rgb(var(--border))]/50 w-full max-w-md safe-area-bottom shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.2)]">
+          <div className="flex items-center justify-around p-3 pb-5 sm:pb-3 relative">
+            {/* Active Tab Indicator - Animated Background */}
+            <div
+              className="absolute top-0 h-1 bg-gradient-to-r transition-all duration-300 ease-out rounded-b-full"
+              style={{
+                left: currentView === 'home' ? '8%' :
+                  currentView === 'inventory' ? '28%' :
+                    currentView === 'support' ? '62%' :
+                      currentView === 'settings' ? '82%' : '50%',
+                width: '12%',
+                background: currentView === 'home' ? 'linear-gradient(to right, #06b6d4, #0891b2)' :
+                  currentView === 'inventory' ? 'linear-gradient(to right, #a855f7, #9333ea)' :
+                    currentView === 'support' ? 'linear-gradient(to right, #f43f5e, #e11d48)' :
+                      currentView === 'settings' ? 'linear-gradient(to right, #64748b, #475569)' : 'transparent'
+              }}
+            />
 
-            {/* Settings - hidden on mobile, in menu */}
+            {/* Home Tab */}
             <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors relative hidden sm:flex"
-              title="Settings"
+              onClick={() => setCurrentView('home')}
+              className={`flex flex-col items-center gap-1 transition-all duration-200 relative group ${currentView === 'home'
+                ? 'text-cyan-500 scale-110'
+                : 'text-[rgb(var(--muted-foreground))] hover:text-cyan-400 hover:scale-105'
+                }`}
             >
-              <SettingsIcon />
-              {notifications.enabled && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full"></span>
+              <div className={`transition-all duration-200 ${currentView === 'home' ? 'drop-shadow-[0_2px_8px_rgba(6,182,212,0.4)]' : ''}`}>
+                <GridIcon />
+              </div>
+              <span className={`text-[10px] font-medium transition-all ${currentView === 'home' ? 'font-semibold' : ''}`}>
+                {t('home')}
+              </span>
+              {currentView === 'home' && (
+                <div className="absolute -bottom-1 w-1 h-1 bg-cyan-500 rounded-full animate-pulse" />
               )}
             </button>
 
-            {/* Theme - hidden on small */}
+            {/* Inventory Tab */}
             <button
-              onClick={toggleTheme}
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors hidden md:flex"
-              title="Toggle theme"
+              onClick={() => setCurrentView('inventory')}
+              className={`flex flex-col items-center gap-1 transition-all duration-200 relative group ${currentView === 'inventory'
+                ? 'text-purple-500 scale-110'
+                : 'text-[rgb(var(--muted-foreground))] hover:text-purple-400 hover:scale-105'
+                }`}
             >
-              {theme === 'light' ? <MoonIcon /> : <SunIcon />}
-            </button>
-
-            {/* Add Location - hidden on small */}
-            <button
-              onClick={() => setIsLocationModalOpen(true)}
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors hidden md:flex"
-              title="Add location"
-            >
-              <FolderIcon />
-            </button>
-
-            {/* Language Switcher - always visible */}
-            <button
-              onClick={() => {
-                const langs: ('en' | 'fr' | 'ar')[] = ['en', 'fr', 'ar'];
-                const currentIndex = langs.indexOf(language);
-                const nextLang = langs[(currentIndex + 1) % langs.length];
-                setLanguage(nextLang);
-              }}
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors flex items-center justify-center min-w-[3rem]"
-              title="Change language"
-            >
-              <span className="text-sm font-bold uppercase">
-                {language}
-              </span>
-            </button>
-
-            {/* Support - always visible */}
-            <Link
-              href="/support"
-              className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:opacity-90 transition-opacity flex items-center justify-center"
-              title="Support"
-            >
-              <HeartIcon />
-            </Link>
-
-            {/* Add Product - always visible, compact on mobile */}
-            <button
-              onClick={() => setIsProductModalOpen(true)}
-              className="flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium text-sm"
-            >
-              <PlusIcon />
-              <span className="hidden sm:inline">Add</span>
-            </button>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-1.5 rounded-lg bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors sm:hidden"
-            >
-              {isMobileMenuOpen ? <CloseMenuIcon /> : <MenuIcon />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu Dropdown */}
-        {isMobileMenuOpen && (
-          <div className="sm:hidden border-t border-[rgb(var(--border))] bg-[rgb(var(--background))] animate-fade-in">
-            <div className="px-4 py-3 space-y-2">
-              <Link
-                href="/support"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white"
-              >
-                <HeartIcon />
-                <span className="font-medium">Support</span>
-              </Link>
-              <Link
-                href="/stats"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]"
-              >
-                <ChartIcon />
-                <span className="font-medium">Statistics</span>
-              </Link>
-              <button
-                onClick={() => { setIsSettingsModalOpen(true); setIsMobileMenuOpen(false); }}
-                className="flex items-center gap-3 p-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] w-full text-left"
-              >
-                <SettingsIcon />
-                <span className="font-medium">{t('settings')}</span>
-                {notifications.enabled && (
-                  <span className="ml-auto text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">ON</span>
-                )}
-              </button>
-              <button
-                onClick={() => { toggleTheme(); setIsMobileMenuOpen(false); }}
-                className="flex items-center gap-3 p-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] w-full text-left"
-              >
-                {theme === 'light' ? <MoonIcon /> : <SunIcon />}
-                <span className="font-medium">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
-              </button>
-              <button
-                onClick={() => { setIsLocationModalOpen(true); setIsMobileMenuOpen(false); }}
-                className="flex items-center gap-3 p-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] w-full text-left"
-              >
+              <div className={`transition-all duration-200 ${currentView === 'inventory' ? 'drop-shadow-[0_2px_8px_rgba(168,85,247,0.4)]' : ''}`}>
                 <FolderIcon />
-                <span className="font-medium">Add Location</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
-
-      <div className="max-w-6xl mx-auto px-4 py-6">
-
-
-        {/* Notification Banner */}
-        {!notifications.enabled && products.length > 0 && (
-          <div
-            onClick={() => setIsSettingsModalOpen(true)}
-            className="mb-6 p-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl text-white cursor-pointer hover:opacity-90 transition-opacity"
-          >
-            <div className="flex items-center gap-3">
-              <BellIcon />
-              <div>
-                <p className="font-semibold">{t('enableNotifications')}</p>
-                <p className="text-sm opacity-90">{t('notifications')}</p>
               </div>
-            </div>
-          </div>
-        )}
+              <span className={`text-[10px] font-medium transition-all ${currentView === 'inventory' ? 'font-semibold' : ''}`}>
+                {t('list')}
+              </span>
+              {currentView === 'inventory' && (
+                <div className="absolute -bottom-1 w-1 h-1 bg-purple-500 rounded-full animate-pulse" />
+              )}
+            </button>
 
-        {/* Breadcrumb / Back button when in location view */}
-        {selectedLocationId && (
-          <button
-            onClick={handleBackToLocations}
-            className="flex items-center gap-2 text-[rgb(var(--primary))] hover:underline mb-4 font-medium"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to all locations
-          </button>
-        )}
-
-        {/* Global Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <StatsCard title={t('total')} count={products.length} icon="📦" color="rgb(var(--primary))" />
-          <StatsCard title={t('safe')} count={safeProducts.length} icon="🟢" color="rgb(34, 197, 94)" />
-          <StatsCard title={t('expiring')} count={expiringProducts.length} icon="🟡" color="rgb(245, 158, 11)" />
-          <StatsCard title={t('expired')} count={expiredProducts.length} icon="🔴" color="rgb(239, 68, 68)" />
-        </div>
-
-        {/* Location View or Product View */}
-        {!selectedLocationId ? (
-          <>
-            {/* View Mode Toggle */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-[rgb(var(--foreground))]">
-                {t('locations')}
-              </h2>
-              <div className="flex gap-2 bg-[rgb(var(--secondary))] p-1 rounded-xl">
-                <button
-                  onClick={() => setViewMode('locations')}
-                  className={`p-2 rounded-lg transition-colors ${viewMode === 'locations'
-                    ? 'bg-[rgb(var(--card))] shadow-sm'
-                    : 'hover:bg-[rgb(var(--muted))]'
-                    }`}
-                  title="Locations view"
-                >
-                  <FolderIcon />
-                </button>
-                <button
-                  onClick={() => setViewMode('all')}
-                  className={`p-2 rounded-lg transition-colors ${viewMode === 'all'
-                    ? 'bg-[rgb(var(--card))] shadow-sm'
-                    : 'hover:bg-[rgb(var(--muted))]'
-                    }`}
-                  title="All products view"
-                >
-                  <GridIcon />
-                </button>
-              </div>
-            </div>
-
-            {viewMode === 'locations' ? (
-              /* Locations Grid */
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {locationStats.map(({ location, total, expiring, expired }) => (
-                  <LocationCard
-                    key={location.id}
-                    location={location}
-                    productCount={total}
-                    expiringCount={expiring}
-                    expiredCount={expired}
-                    onClick={() => handleLocationClick(location.id)}
-                  />
-                ))}
-
-                {/* Add Location Card */}
-                <button
-                  onClick={() => setIsLocationModalOpen(true)}
-                  className="border-2 border-dashed border-[rgb(var(--border))] rounded-2xl p-6 hover:border-[rgb(var(--primary))] hover:bg-[rgb(var(--secondary))/50] transition-all flex flex-col items-center justify-center gap-2 min-h-[160px]"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-[rgb(var(--secondary))] flex items-center justify-center">
-                    <PlusIcon />
-                  </div>
-                  <span className="font-medium text-[rgb(var(--muted-foreground))]">{t('location')}</span>
-                </button>
-              </div>
-            ) : (
-              /* All Products View */
-              <>
-                {/* Search Bar */}
-                <div className="mb-4">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[rgb(var(--muted-foreground))]">
-                      <SearchIcon />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder={t('search')}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none placeholder:text-[rgb(var(--muted-foreground))]"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))]"
-                      >
-                        <CloseIcon />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Quick Filter Chips & Sort */}
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <div className="flex flex-wrap gap-2 flex-1">
-                    {[
-                      { value: 'all', label: t('allProducts'), count: displayProducts.length },
-                      { value: 'expiring-soon', label: `🟡 ${t('expiring')}`, count: displayProducts.filter(p => p.status === 'expiring-soon').length },
-                      { value: 'expired', label: `🔴 ${t('expired')}`, count: displayProducts.filter(p => p.status === 'expired').length },
-                      { value: 'safe', label: `🟢 ${t('safe')}`, count: displayProducts.filter(p => p.status === 'safe').length },
-                    ].map((filter) => (
-                      <button
-                        key={filter.value}
-                        onClick={() => setFilterStatus(filter.value)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${filterStatus === filter.value
-                          ? 'bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]'
-                          : 'bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))]'
-                          }`}
-                      >
-                        {filter.label} ({filter.count})
-                      </button>
-                    ))}
-                  </div>
-
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'date' | 'name' | 'status')}
-                    className="px-3 py-1.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--foreground))] text-sm focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none"
-                  >
-                    <option value="date">{t('sortBy')}: {t('date')}</option>
-                    <option value="name">{t('sortBy')}: {t('name')}</option>
-                    <option value="status">{t('sortBy')}: {t('status')}</option>
-                  </select>
-                </div>
-
-                {filteredProducts.length === 0 ? (
-                  <div className="text-center py-16">
-                    <span className="text-6xl mb-4 block">{searchQuery || filterStatus !== 'all' ? '🔍' : '📭'}</span>
-                    <h2 className="text-xl font-semibold text-[rgb(var(--foreground))] mb-2">
-                      {searchQuery || filterStatus !== 'all' ? t('noProducts') : t('noProducts')}
-                    </h2>
-                    <p className="text-[rgb(var(--muted-foreground))] mb-6">
-                      {searchQuery || filterStatus !== 'all'
-                        ? ''
-                        : t('addFirst')}
-                    </p>
-                    {searchQuery || filterStatus !== 'all' ? (
-                      <button
-                        onClick={() => { setSearchQuery(''); setFilterStatus('all'); }}
-                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))] transition-colors font-medium"
-                      >
-                        Clear Filters
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setIsProductModalOpen(true)}
-                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
-                      >
-                        <PlusIcon />
-                        {t('addFirst')}
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredProducts.map((product, index) => (
-                      <div key={product.id} style={{ animationDelay: `${index * 50}ms` }}>
-                        <ProductCard
-                          product={product}
-                          category={categories.find(c => c.id === product.categoryId)}
-                          onEdit={() => handleEdit(product)}
-                          onDelete={() => handleDelete(product.id)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        ) : (
-          /* Selected Location Products View */
-          <>
-            <div className="flex items-center gap-4 mb-6">
-              <span className="text-4xl">{selectedLocation?.icon}</span>
-              <div>
-                <h2 className="text-2xl font-bold text-[rgb(var(--foreground))]">
-                  {selectedLocation?.name}
-                </h2>
-                <p className="text-sm text-[rgb(var(--muted-foreground))]">
-                  {selectedLocation?.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-4 mb-4">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none"
-              >
-                <option value="all">All Status</option>
-                <option value="safe">🟢 Safe</option>
-                <option value="expiring-soon">🟡 Expiring Soon</option>
-                <option value="expired">🔴 Expired</option>
-              </select>
-
+            {/* Center Add Button - Enhanced */}
+            <div className="relative -top-6">
               <button
-                onClick={() => setIsProductModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
+                onClick={() => { setIsProductModalOpen(true); setEditingProduct(null); }}
+                className="w-14 h-14 rounded-full bg-gradient-to-br from-[rgb(var(--primary))] to-[rgb(var(--primary))]/80 text-white shadow-lg shadow-[rgb(var(--primary))/40] flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 hover:shadow-xl hover:shadow-[rgb(var(--primary))/50] relative overflow-hidden group"
               >
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <PlusIcon />
-                Add to {selectedLocation?.name}
+                <div className="absolute inset-0 rounded-full border-2 border-white/20" />
               </button>
             </div>
 
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-16">
-                <span className="text-6xl mb-4 block">{selectedLocation?.icon}</span>
-                <h2 className="text-xl font-semibold text-[rgb(var(--foreground))] mb-2">
-                  No products in {selectedLocation?.name}
-                </h2>
-                <p className="text-[rgb(var(--muted-foreground))] mb-6">
-                  Add products to this location to track them
-                </p>
-                <button
-                  onClick={() => setIsProductModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
-                >
-                  <PlusIcon />
-                  Add Product Here
-                </button>
+            {/* Support Tab */}
+            <button
+              onClick={() => setCurrentView('support')}
+              className={`flex flex-col items-center gap-1 transition-all duration-200 relative group ${currentView === 'support'
+                ? 'text-rose-500 scale-110'
+                : 'text-[rgb(var(--muted-foreground))] hover:text-rose-400 hover:scale-105'
+                }`}
+            >
+              <div className={`transition-all duration-200 ${currentView === 'support' ? 'drop-shadow-[0_2px_8px_rgba(244,63,94,0.4)] animate-pulse' : ''}`}>
+                <HeartIcon />
               </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredProducts.map((product, index) => (
-                  <div key={product.id} style={{ animationDelay: `${index * 50}ms` }}>
-                    <ProductCard
-                      product={product}
-                      category={categories.find(c => c.id === product.categoryId)}
-                      onEdit={() => handleEdit(product)}
-                      onDelete={() => handleDelete(product.id)}
-                    />
-                  </div>
-                ))}
+              <span className={`text-[10px] font-medium transition-all ${currentView === 'support' ? 'font-semibold' : ''}`}>
+                {t('support')}
+              </span>
+              {currentView === 'support' && (
+                <div className="absolute -bottom-1 w-1 h-1 bg-rose-500 rounded-full animate-pulse" />
+              )}
+            </button>
+
+            {/* Settings Tab */}
+            <button
+              onClick={() => setCurrentView('settings')}
+              className={`flex flex-col items-center gap-1 transition-all duration-200 relative group ${currentView === 'settings'
+                ? 'text-slate-500 scale-110'
+                : 'text-[rgb(var(--muted-foreground))] hover:text-slate-400 hover:scale-105'
+                }`}
+            >
+              <div className={`transition-all duration-200 ${currentView === 'settings' ? 'drop-shadow-[0_2px_8px_rgba(100,116,139,0.4)]' : ''}`}>
+                <SettingsIcon />
               </div>
-            )}
-          </>
-        )}
+              <span className={`text-[10px] font-medium transition-all ${currentView === 'settings' ? 'font-semibold' : ''}`}>
+                {t('settings')}
+              </span>
+              {currentView === 'settings' && (
+                <div className="absolute -bottom-1 w-1 h-1 bg-slate-500 rounded-full animate-pulse" />
+              )}
+            </button>
+          </div>
+        </nav>
       </div>
 
       {/* Modals */}
       <ProductModal
         isOpen={isProductModalOpen}
-        onClose={handleCloseProductModal}
+        onClose={() => setIsProductModalOpen(false)}
         editingProduct={editingProduct}
         categories={categories}
         locations={locations}
-        defaultLocationId={selectedLocationId || undefined}
+        defaultLocationId={selectedLocation !== 'all' ? selectedLocation : undefined}
       />
-
       <AddLocationModal
         isOpen={isLocationModalOpen}
         onClose={() => setIsLocationModalOpen(false)}
       />
-
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-      />
-    </main>
+    </div>
   );
 }
+

@@ -5,7 +5,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 
 export type Language = 'en' | 'fr' | 'ar';
 
-type TranslationKey =
+
+export type TranslationKey =
     | 'appName'
     | 'neverWaste'
     | 'addProduct'
@@ -51,6 +52,7 @@ type TranslationKey =
     | 'sortBy'
     | 'date'
     | 'name'
+    | 'list'
     | 'status'
     | 'productImage'
     | 'hasExpirationDate'
@@ -61,6 +63,40 @@ type TranslationKey =
     | 'notOpened'
     | 'notifyTiming'
     | 'manageLocations'
+    // Support
+    | 'supportTitle'
+    | 'supportSubtitle'
+    | 'waysToSupport'
+    | 'buyMeCoffee'
+    | 'crypto'
+    | 'donate'
+    | 'contributionThanks'
+    // New keys
+    | 'expiringSoon'
+    | 'totalProducts'
+    | 'scanBarcode'
+    | 'addLocation'
+    | 'quickActions'
+    | 'searchPlaceholder'
+    | 'allCategories'
+    | 'allLocations'
+    | 'noProductsFound'
+    | 'home'
+    // Categories
+    | 'cat_medicine'
+    | 'cat_food'
+    | 'cat_makeup'
+    | 'cat_baby'
+    | 'cat_household'
+    | 'cat_other'
+    // Locations
+    | 'loc_kitchen'
+    | 'loc_bathroom'
+    | 'loc_medicine_cabinet'
+    | 'loc_bedroom'
+    | 'loc_garage'
+    | 'loc_office'
+    // Data Management
     | 'dataManagement'
     | 'exportData'
     | 'importData'
@@ -116,6 +152,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         sortBy: 'Sort by',
         date: 'Date',
         name: 'Name',
+        list: 'Inventory',
         status: 'Status',
         productImage: 'Product Image (optional)',
         hasExpirationDate: 'Has expiration date?',
@@ -126,6 +163,40 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         notOpened: 'Not Opened',
         notifyTiming: 'Notify me (days before)',
         manageLocations: 'Manage Locations',
+        // Support & Donation
+        supportTitle: 'Support ExpireTrack',
+        supportSubtitle: 'Help me continue building and improving this app!',
+        waysToSupport: 'Ways to Support',
+        buyMeCoffee: 'Buy me a coffee',
+        crypto: 'Crypto',
+        donate: 'Donate',
+        contributionThanks: 'Every contribution, no matter how small, means the world to me! 💕',
+        // New Keys
+        expiringSoon: 'Expiring Soon',
+        totalProducts: 'Total Products',
+        scanBarcode: 'Scan Barcode',
+        addLocation: 'Add Location',
+        quickActions: 'Quick Actions',
+        searchPlaceholder: 'Search products...',
+        allCategories: 'All Categories',
+        allLocations: 'All Locations',
+        noProductsFound: 'No products found.',
+        home: 'Home',
+
+        // Categories
+        cat_medicine: 'Medicine',
+        cat_food: 'Food',
+        cat_makeup: 'Makeup / Skincare',
+        cat_baby: 'Baby Products',
+        cat_household: 'Household',
+        cat_other: 'Other',
+        // Locations
+        loc_kitchen: 'Kitchen',
+        loc_bathroom: 'Bathroom',
+        loc_medicine_cabinet: 'Medicine Cabinet',
+        loc_bedroom: 'Bedroom',
+        loc_garage: 'Garage',
+        loc_office: 'Office',
         // Data Management
         dataManagement: 'Data Management',
         exportData: 'Export Data',
@@ -181,6 +252,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         sortBy: 'Trier par',
         date: 'Date',
         name: 'Nom',
+        list: 'Inventaire',
         status: 'Statut',
         productImage: 'Image du produit (optionnel)',
         hasExpirationDate: 'A une date d\'expiration ?',
@@ -191,6 +263,40 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         notOpened: 'Non ouvert',
         notifyTiming: 'Me notifier (jours avant)',
         manageLocations: 'Gérer les emplacements',
+        // Support
+        supportTitle: 'Soutenir ExpireTrack',
+        supportSubtitle: 'Aidez-moi à continuer à améliorer cette application !',
+        waysToSupport: 'Façons de soutenir',
+        buyMeCoffee: 'M\'offrir un café',
+        crypto: 'Crypto',
+        donate: 'Faire un don',
+        contributionThanks: 'Chaque contribution, aussi petite soit-elle, signifie beaucoup pour moi ! 💕',
+        // New Keys
+        expiringSoon: 'Expire Bientôt',
+        totalProducts: 'Total Produits',
+        scanBarcode: 'Scanner Code-barres',
+        addLocation: 'Ajouter Lieu',
+        quickActions: 'Actions Rapides',
+        searchPlaceholder: 'Rechercher un produit...',
+        allCategories: 'Toutes Catégories',
+        allLocations: 'Tous Lieux',
+        noProductsFound: 'Aucun produit trouvé.',
+        home: 'Accueil',
+
+        // Categories
+        cat_medicine: 'Médicaments',
+        cat_food: 'Nourriture',
+        cat_makeup: 'Maquillage / Soins',
+        cat_baby: 'Produits bébé',
+        cat_household: 'Produits ménagers',
+        cat_other: 'Autre',
+        // Locations
+        loc_kitchen: 'Cuisine',
+        loc_bathroom: 'Salle de bain',
+        loc_medicine_cabinet: 'Armoire à pharmacie',
+        loc_bedroom: 'Chambre',
+        loc_garage: 'Garage',
+        loc_office: 'Bureau',
         // Data Management
         dataManagement: 'Gestion des données',
         exportData: 'Exporter les données',
@@ -246,6 +352,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         sortBy: 'ترتيب',
         date: 'التاريخ',
         name: 'الاسم',
+        list: 'المخزون',
         status: 'الحالة',
         productImage: 'صورة المنتج (اختياري)',
         hasExpirationDate: 'هل له تاريخ انتهاء؟',
@@ -256,6 +363,40 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         notOpened: 'غير مفتوح',
         notifyTiming: 'تنبيه (أيام قبل)',
         manageLocations: 'إدارة المواقع',
+        // Support
+        supportTitle: 'دعم ExpireTrack',
+        supportSubtitle: 'ساعدني في الاستمرار في تطوير وتحسين هذا التطبيق!',
+        waysToSupport: 'طرق الدعم',
+        buyMeCoffee: 'اشتري لي قهوة',
+        crypto: 'عملات رقمية',
+        donate: 'تبرع',
+        contributionThanks: 'كل مساهمة، مهما كانت صغيرة، تعني لي الكثير! 💕',
+        // New Keys
+        expiringSoon: 'ينتهي قريباً',
+        totalProducts: 'إجمالي المنتجات',
+        scanBarcode: 'مسح الباركود',
+        addLocation: 'إضافة موقع',
+        quickActions: 'إجراءات سريعة',
+        searchPlaceholder: 'بحث عن منتج...',
+        allCategories: 'كل الفئات',
+        allLocations: 'كل المواقع',
+        noProductsFound: 'لا توجد نتائج.',
+        home: 'الرئيسية',
+
+        // Categories
+        cat_medicine: 'الأدوية',
+        cat_food: 'الطعام',
+        cat_makeup: 'مكياج / عناية بالبشرة',
+        cat_baby: 'منتجات الأطفال',
+        cat_household: 'أدوات منزلية',
+        cat_other: 'أخرى',
+        // Locations
+        loc_kitchen: 'المطبخ',
+        loc_bathroom: 'الحمام',
+        loc_medicine_cabinet: 'خزانة الأدوية',
+        loc_bedroom: 'غرفة النوم',
+        loc_garage: 'الجراج',
+        loc_office: 'المكتب',
         // Data Management
         dataManagement: 'إدارة البيانات',
         exportData: 'تصدير البيانات',
@@ -271,6 +412,9 @@ interface I18nContextType {
     t: (key: TranslationKey) => string;
     lang: Language;
     setLang: (lang: Language) => void;
+    // Aliases for compatibility
+    language: Language;
+    setLanguage: (lang: Language) => void;
     isRTL: boolean;
 }
 
@@ -286,7 +430,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const isRTL = language === 'ar';
 
     return (
-        <I18nContext.Provider value={{ t, lang: language, setLang: setLanguage, isRTL }}>
+        <I18nContext.Provider value={{
+            t,
+            lang: language,
+            setLang: setLanguage,
+            language,  // Alias
+            setLanguage, // Alias
+            isRTL
+        }}>
             <div dir={isRTL ? 'rtl' : 'ltr'}>
                 {children}
             </div>
