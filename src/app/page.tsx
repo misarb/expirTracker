@@ -699,18 +699,20 @@ function AddLocationModal({
   const { addLocation } = useProductStore();
   const [formData, setFormData] = useState({
     name: '',
-    icon: '📍',
+    icon: '📁',
     color: '#6366F1',
     description: '',
   });
 
   const emojiOptions = [
+    // Folders & Organization
+    '📁', '🗂️', '📂', '🗄️', '🗃️', '📦', '📍',
     // Rooms & Spaces
     '🏠', '🍳', '🚿', '💊', '🛏️', '🏢', '🚗', '🏡', '🛋️', '🪴',
-    // Storage & Organization
-    '📦', '🗄️', '📍', '🧊', '❄️', '🗃️', '📚', '🧰', '🎒', '👜',
+    // Storage
+    '🧊', '❄️', '📚', '🧰', '🎒', '👜',
     // Food & Kitchen Related
-    '🍽️', '🥘', '☕', '🍞', '🧊', '🥗', '🍱', '🧃',
+    '🍽️', '🥘', '☕', '🍞', '🥗', '🍱', '🧃',
     // General Useful
     '⭐', '🔵', '🟢', '🟡', '🟣', '🟠', '⚫', '⚪'
   ];
@@ -718,7 +720,7 @@ function AddLocationModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addLocation(formData);
-    setFormData({ name: '', icon: '📍', color: '#6366F1', description: '' });
+    setFormData({ name: '', icon: '📁', color: '#6366F1', description: '' });
     onClose();
   };
 
@@ -731,7 +733,7 @@ function AddLocationModal({
         {/* Header with Close Button */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">
-            Add New Location
+            Add New Space
           </h2>
           <button
             type="button"
@@ -879,8 +881,8 @@ function SettingsModal({
           </div>
         ) : permissionStatus === 'granted' && notifications.enabled ? (
           <div className="space-y-4">
-            <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-800 dark:text-green-200 text-sm flex items-center gap-2">
-              ✅ Notifications are enabled!
+            <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-800 dark:text-green-200 text-sm">
+              Notifications are enabled!
             </div>
             {/* Days before setting */}
             <div className="pl-2">
@@ -926,19 +928,18 @@ function SettingsModal({
 
             <button
               onClick={handleEnableNotifications}
-              className="w-full px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium flex items-center justify-center gap-2"
+              className="w-full px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90 transition-opacity font-medium"
             >
-              <BellIcon />
               {t('enableNotifications')}
             </button>
           </div>
         )}
       </div>
 
-      {/* Manage Locations */}
+      {/* Manage Spaces */}
       <div>
         <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
-          <span className="text-xl">📍</span>
+          <span className="text-xl">📁</span>
           {t('manageLocations')}
         </h3>
         <div className="space-y-2">
@@ -967,7 +968,7 @@ function SettingsModal({
             </div>
           ))}
           {locations.length <= 1 && (
-            <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last location.</p>
+            <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last space.</p>
           )}
         </div>
       </div>
@@ -1383,13 +1384,15 @@ export default function Home() {
             <div>
               <h2 className="text-lg font-bold mb-3 text-[rgb(var(--foreground))]">{t('quickActions')}</h2>
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-                <button onClick={() => { setIsProductModalOpen(true); setEditingProduct(null); }} className="flex flex-col items-center gap-2 p-4 bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl min-w-[100px] hover:bg-[rgb(var(--secondary))] transition-colors">
-                  <div className="bg-blue-100 text-blue-600 dark:bg-blue-900/30 p-3 rounded-xl"><PlusIcon /></div>
-                  <span className="text-xs font-medium">{t('addProduct')}</span>
+                <button onClick={() => { setIsProductModalOpen(true); setEditingProduct(null); }} className="flex flex-col items-center gap-2 p-4 bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl min-w-[100px] hover:bg-[rgb(var(--secondary))] hover:scale-105 transition-all duration-200 shadow-sm">
+                  <div className="text-cyan-500 text-3xl">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                  </div>
+                  <span className="text-xs font-medium text-[rgb(var(--foreground))]">{t('addProduct')}</span>
                 </button>
-                <button onClick={() => setIsLocationModalOpen(true)} className="flex flex-col items-center gap-2 p-4 bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl min-w-[100px] hover:bg-[rgb(var(--secondary))] transition-colors">
-                  <div className="bg-purple-100 text-purple-600 dark:bg-purple-900/30 p-3 rounded-xl"><span className="text-lg">📍</span></div>
-                  <span className="text-xs font-medium">{t('addLocation')}</span>
+                <button onClick={() => setIsLocationModalOpen(true)} className="flex flex-col items-center gap-2 p-4 bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl min-w-[100px] hover:bg-[rgb(var(--secondary))] hover:scale-105 transition-all duration-200 shadow-sm">
+                  <span className="text-3xl">📁</span>
+                  <span className="text-xs font-medium text-[rgb(var(--foreground))]">{t('addLocation')}</span>
                 </button>
 
               </div>
@@ -1465,7 +1468,10 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <h2 className="text-xl font-bold px-1">{t('locations')}</h2>
+                <h2 className="text-xl font-bold px-1 flex items-center gap-2">
+                  <FolderIcon />
+                  {t('locations')}
+                </h2>
               )}
 
               {/* Search Bar - Only show in list mode or maybe always? keeping simple for now */}
