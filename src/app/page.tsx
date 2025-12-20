@@ -1427,6 +1427,7 @@ export default function Home() {
                       setInventoryViewMode('grid');
                       setActiveLocationId(null);
                       setSelectedLocation('all'); // Reset filter
+                      setSelectedStatus('all'); // Also reset status filter
                     }}
                     className="p-2 rounded-xl bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]"
                   >
@@ -1437,6 +1438,30 @@ export default function Home() {
                       {locations.find(l => l.id === activeLocationId)?.name}
                     </h2>
                     <p className="text-xs text-[rgb(var(--muted-foreground))]">{products.filter(p => p.locationId === activeLocationId).length} items</p>
+                  </div>
+                </div>
+              ) : inventoryViewMode === 'list' ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setInventoryViewMode('grid');
+                      setActiveLocationId(null);
+                      setSelectedLocation('all');
+                      setSelectedStatus('all');
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[rgb(var(--secondary))] hover:bg-[rgb(var(--muted))] text-[rgb(var(--foreground))] font-medium transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    Back
+                  </button>
+                  <div>
+                    <h2 className="text-lg font-bold">
+                      {selectedStatus === 'expired' ? '🔴 Expired' :
+                        selectedStatus === 'expiring-soon' ? '🟡 Expiring Soon' :
+                          selectedStatus === 'safe' ? '🟢 Safe' :
+                            '📦 ' + t('allProducts')}
+                    </h2>
+                    <p className="text-xs text-[rgb(var(--muted-foreground))]">{filteredProducts.length} items</p>
                   </div>
                 </div>
               ) : (
@@ -1469,6 +1494,7 @@ export default function Home() {
                     setInventoryViewMode('list');
                     setActiveLocationId(null); // Null means ALL
                     setSelectedLocation('all');
+                    setSelectedStatus('all'); // Reset status filter too
                   }}
                   className="bg-[rgb(var(--card))] rounded-2xl p-6 shadow-sm border border-[rgb(var(--border))] hover:shadow-lg hover:scale-[1.02] transition-all duration-300 text-left w-full group relative overflow-hidden"
                 >
