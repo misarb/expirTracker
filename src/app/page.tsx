@@ -304,27 +304,42 @@ function ProductModal({
   const [showScanner, setShowScanner] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
+  const [scanMessageType, setScanMessageType] = useState<'success' | 'info' | 'error'>('info');
 
   const handleBarcodeScan = async (barcode: string) => {
     setShowScanner(false);
     setIsLookingUp(true);
-    setScanMessage('Looking up product...');
+    setScanMessage('🔍 Looking up product...');
+    setScanMessageType('info');
 
-    const productInfo = await lookupBarcode(barcode);
+    try {
+      const productInfo = await lookupBarcode(barcode);
 
-    if (productInfo.found && productInfo.name) {
-      setFormData(prev => ({
-        ...prev,
-        name: productInfo.name,
-        image: productInfo.imageUrl || prev.image,
-      }));
-      setScanMessage(`✅ Found: ${productInfo.name}`);
-    } else {
-      setScanMessage('❌ Product not found. Please enter name manually.');
+      if (productInfo.found && productInfo.name) {
+        // Product found - auto-fill name and image
+        setFormData(prev => ({
+          ...prev,
+          name: productInfo.name,
+          image: productInfo.imageUrl || prev.image,
+        }));
+        setScanMessage(`✓ Found: ${productInfo.name}`);
+        setScanMessageType('success');
+      } else {
+        // Product not in database - user can enter manually
+        // Still helpful: barcode is captured for reference
+        setScanMessage(`Barcode scanned! Product not in database - please enter the name below.`);
+        setScanMessageType('info');
+        // Focus the name input for easier entry
+      }
+    } catch {
+      // Network or API error
+      setScanMessage('Unable to lookup product. Please enter the name manually.');
+      setScanMessageType('info');
     }
 
     setIsLookingUp(false);
-    setTimeout(() => setScanMessage(''), 3000);
+    // Keep message visible longer for user to read
+    setTimeout(() => setScanMessage(''), 5000);
   };
 
   useEffect(() => {
@@ -497,11 +512,19 @@ function ProductModal({
                 <span className="hidden sm:inline">Scan</span>
               </button>
             </div>
-            {/* Scan Status Message */}
+            {/* Scan Status Message - Professional styling */}
             {scanMessage && (
-              <p className={`mt-2 text-sm ${scanMessage.startsWith('✅') ? 'text-green-600' : scanMessage.startsWith('❌') ? 'text-red-500' : 'text-[rgb(var(--muted-foreground))]'}`}>
-                {scanMessage}
-              </p>
+              <div className={`mt-3 p-3 rounded-xl text-sm flex items-start gap-2 ${scanMessageType === 'success'
+                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                  : scanMessageType === 'error'
+                    ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                }`}>
+                <span className="shrink-0">
+                  {scanMessageType === 'success' ? '✓' : scanMessageType === 'error' ? '!' : 'ℹ'}
+                </span>
+                <span>{scanMessage}</span>
+              </div>
             )}
           </div>
 

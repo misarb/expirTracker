@@ -127,6 +127,33 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                         style={{ minHeight: '250px' }}
                     />
 
+                    {/* Animated Scan Line Overlay - shows when scanning */}
+                    {isScanning && (
+                        <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden">
+                            {/* Corner markers */}
+                            <div className="absolute top-4 left-4 w-8 h-8 border-l-4 border-t-4 border-green-400 rounded-tl-lg" />
+                            <div className="absolute top-4 right-4 w-8 h-8 border-r-4 border-t-4 border-green-400 rounded-tr-lg" />
+                            <div className="absolute bottom-4 left-4 w-8 h-8 border-l-4 border-b-4 border-green-400 rounded-bl-lg" />
+                            <div className="absolute bottom-4 right-4 w-8 h-8 border-r-4 border-b-4 border-green-400 rounded-br-lg" />
+
+                            {/* Animated scan line */}
+                            <div
+                                className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-green-400 to-transparent shadow-[0_0_10px_2px_rgba(74,222,128,0.6)]"
+                                style={{
+                                    animation: 'scanLine 2s ease-in-out infinite',
+                                }}
+                            />
+
+                            {/* CSS Keyframes for scan line */}
+                            <style jsx>{`
+                          @keyframes scanLine {
+                            0%, 100% { top: 20%; }
+                            50% { top: 80%; }
+                          }
+                        `}</style>
+                        </div>
+                    )}
+
                     {!isScanning && !error && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
                             <div className="text-white text-center">
