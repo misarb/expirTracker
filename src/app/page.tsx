@@ -515,10 +515,10 @@ function ProductModal({
             {/* Scan Status Message - Professional styling */}
             {scanMessage && (
               <div className={`mt-3 p-3 rounded-xl text-sm flex items-start gap-2 ${scanMessageType === 'success'
-                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                  : scanMessageType === 'error'
-                    ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                : scanMessageType === 'error'
+                  ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                  : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
                 }`}>
                 <span className="shrink-0">
                   {scanMessageType === 'success' ? '✓' : scanMessageType === 'error' ? '!' : 'ℹ'}
@@ -1264,7 +1264,8 @@ function SettingsModal({
   );
 }
 
-// Stats Card Component - Interactive
+// Stats Card Component - Interactive (kept for potential future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function StatsCard({ title, count, icon, color, onClick, gradientFrom, gradientTo }: {
   title: string;
   count: number;
@@ -1381,9 +1382,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* App Name */}
+        {/* App Name - Two-tone logo */}
         <h1 className="text-4xl font-bold tracking-tight mb-2 animate-fade-in">
-          ExpireTrack
+          <span className="bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-300 bg-clip-text text-transparent">Expire</span>
+          <span className="text-white">Track</span>
         </h1>
 
         {/* Tagline */}
@@ -1426,33 +1428,80 @@ export default function Home() {
   const renderContent = () => {
     switch (currentView) {
       case 'home':
+        // Calculate health percentage
+        const healthPercent = totalProducts > 0 ? Math.round((safeProducts / totalProducts) * 100) : 100;
+        const circumference = 2 * Math.PI * 45;
+        const strokeDashoffset = circumference - (healthPercent / 100) * circumference;
+
         return (
-          <div className="space-y-6 pb-24 animate-fade-in">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-[rgb(var(--foreground))]">ExpireTrack</h1>
-                <p className="text-sm text-[rgb(var(--muted-foreground))]">{new Date().toLocaleDateString()}</p>
+          <div className="space-y-5 pb-24 animate-fade-in">
+            {/* Hero Section with Circular Progress */}
+            <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl p-6 text-white overflow-hidden">
+              {/* Decorative circles */}
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-xl" />
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/5 rounded-full blur-xl" />
+
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <h1 className="text-xl font-bold">
+                  <span className="bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-300 bg-clip-text text-transparent">Expire</span>
+                  <span className="text-white">Track</span>
+                </h1>
+                <div className="flex gap-2">
+                  <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                    {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                  </button>
+                  <button onClick={() => setLanguage(language === 'en' ? 'fr' : language === 'fr' ? 'ar' : 'en')} className="px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-sm font-bold uppercase transition-colors">
+                    {language}
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))]">
-                  {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-                </button>
-                <button onClick={() => setLanguage(language === 'en' ? 'fr' : language === 'fr' ? 'ar' : 'en')} className="px-3 py-1 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--foreground))] text-sm font-bold uppercase">
-                  {language}
-                </button>
+
+              {/* Circular Progress */}
+              <div className="flex flex-col items-center py-4 relative z-10">
+                <div className="relative w-32 h-32">
+                  <svg className="w-32 h-32 transform -rotate-90">
+                    <circle cx="64" cy="64" r="45" stroke="rgba(255,255,255,0.2)" strokeWidth="8" fill="none" />
+                    <circle
+                      cx="64" cy="64" r="45"
+                      stroke="url(#progressGradient)"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      className="transition-all duration-1000"
+                    />
+                    <defs>
+                      <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#fbbf24" />
+                        <stop offset="100%" stopColor="#f97316" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-bold">{healthPercent}%</span>
+                    <span className="text-xs text-white/70">healthy</span>
+                  </div>
+                </div>
+
+                {/* Motivational Message */}
+                <div className="text-center mt-4">
+                  <h2 className="text-xl font-bold flex items-center justify-center gap-2">
+                    <span className="text-yellow-300">⚡</span>
+                    {healthPercent >= 80 ? 'Great job!' : healthPercent >= 50 ? 'Keep going!' : 'Check your items!'}
+                  </h2>
+                  <p className="text-white/70 text-sm mt-1">
+                    {safeProducts} of {totalProducts} products are safe
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Stats Grid - Interactive */}
-            <div className="grid grid-cols-2 gap-4">
-              <StatsCard
-                title={t('totalProducts')}
-                count={totalProducts}
-                icon="📦"
-                color="#3b82f6"
-                gradientFrom="#3b82f6"
-                gradientTo="#1d4ed8"
+            {/* Stats Grid - Colorful Gradient Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Total */}
+              <button
                 onClick={() => {
                   setCurrentView('inventory');
                   setInventoryViewMode('list');
@@ -1460,44 +1509,17 @@ export default function Home() {
                   setSelectedLocation('all');
                   setSelectedStatus('all');
                 }}
-              />
-              <StatsCard
-                title={t('expired')}
-                count={expiredProducts}
-                icon="🔴"
-                color="#ef4444"
-                gradientFrom="#ef4444"
-                gradientTo="#dc2626"
-                onClick={() => {
-                  setCurrentView('inventory');
-                  setInventoryViewMode('list');
-                  setActiveLocationId(null);
-                  setSelectedLocation('all');
-                  setSelectedStatus('expired');
-                }}
-              />
-              <StatsCard
-                title={t('expiringSoon')}
-                count={expiringSoonProducts}
-                icon="🟡"
-                color="#f59e0b"
-                gradientFrom="#f59e0b"
-                gradientTo="#d97706"
-                onClick={() => {
-                  setCurrentView('inventory');
-                  setInventoryViewMode('list');
-                  setActiveLocationId(null);
-                  setSelectedLocation('all');
-                  setSelectedStatus('expiring-soon');
-                }}
-              />
-              <StatsCard
-                title={t('safe')}
-                count={safeProducts}
-                icon="🟢"
-                color="#22c55e"
-                gradientFrom="#22c55e"
-                gradientTo="#16a34a"
+                className="relative overflow-hidden bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white text-left hover:scale-[1.02] transition-transform"
+              >
+                <div className="relative z-10">
+                  <span className="text-3xl font-bold">{totalProducts}</span>
+                  <p className="text-sm text-white/80 mt-1">{t('totalProducts')}</p>
+                </div>
+                <div className="absolute right-2 bottom-2 text-4xl opacity-30">📦</div>
+              </button>
+
+              {/* Safe */}
+              <button
                 onClick={() => {
                   setCurrentView('inventory');
                   setInventoryViewMode('list');
@@ -1505,8 +1527,52 @@ export default function Home() {
                   setSelectedLocation('all');
                   setSelectedStatus('safe');
                 }}
-              />
+                className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-4 text-white text-left hover:scale-[1.02] transition-transform"
+              >
+                <div className="relative z-10">
+                  <span className="text-3xl font-bold">{safeProducts}</span>
+                  <p className="text-sm text-white/80 mt-1">{t('safe')}</p>
+                </div>
+                <div className="absolute right-2 bottom-2 text-4xl opacity-30">✓</div>
+              </button>
+
+              {/* Expiring */}
+              <button
+                onClick={() => {
+                  setCurrentView('inventory');
+                  setInventoryViewMode('list');
+                  setActiveLocationId(null);
+                  setSelectedLocation('all');
+                  setSelectedStatus('expiring-soon');
+                }}
+                className="relative overflow-hidden bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl p-4 text-white text-left hover:scale-[1.02] transition-transform"
+              >
+                <div className="relative z-10">
+                  <span className="text-3xl font-bold">{expiringSoonProducts}</span>
+                  <p className="text-sm text-white/80 mt-1">{t('expiringSoon')}</p>
+                </div>
+                <div className="absolute right-2 bottom-2 text-4xl opacity-30">⏰</div>
+              </button>
+
+              {/* Expired */}
+              <button
+                onClick={() => {
+                  setCurrentView('inventory');
+                  setInventoryViewMode('list');
+                  setActiveLocationId(null);
+                  setSelectedLocation('all');
+                  setSelectedStatus('expired');
+                }}
+                className="relative overflow-hidden bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl p-4 text-white text-left hover:scale-[1.02] transition-transform"
+              >
+                <div className="relative z-10">
+                  <span className="text-3xl font-bold">{expiredProducts}</span>
+                  <p className="text-sm text-white/80 mt-1">{t('expired')}</p>
+                </div>
+                <div className="absolute right-2 bottom-2 text-4xl opacity-30">✗</div>
+              </button>
             </div>
+
 
             {/* Quick Actions */}
             <div>
