@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface BarcodeScannerProps {
@@ -12,16 +12,39 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     const [error, setError] = useState<string>('');
     const [isScanning, setIsScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const hasScannedRef = useRef(false);
+
+    // Memoize callback to prevent re-renders
+    const handleScanSuccess = useCallback((decodedText: string) => {
+        if (hasScannedRef.current) return;
+        hasScannedRef.current = true;
+
+        // Stop scanner first, then call onScan
+        if (scannerRef.current) {
+            scannerRef.current.stop().then(() => {
+                onScan(decodedText);
+            }).catch(() => {
+                onScan(decodedText);
+            });
+        } else {
+            onScan(decodedText);
+        }
+    }, [onScan]);
 
     useEffect(() => {
         let mounted = true;
 
         const startScanner = async () => {
             try {
-                if (!containerRef.current) return;
+                // Check if camera is available
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(d => d.kind === 'videoinput');
 
-                const scanner = new Html5Qrcode('barcode-reader');
+                if (cameras.length === 0) {
+                    throw new Error('No camera found');
+                }
+
+                const scanner = new Html5Qrcode('barcode-reader', { verbose: false });
                 scannerRef.current = scanner;
 
                 await scanner.start(
@@ -29,16 +52,15 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                     {
                         fps: 10,
                         qrbox: { width: 250, height: 150 },
+                        aspectRatio: 1.0,
                     },
                     (decodedText) => {
-                        // Success - barcode scanned
                         if (mounted) {
-                            onScan(decodedText);
-                            scanner.stop().catch(console.error);
+                            handleScanSuccess(decodedText);
                         }
                     },
                     () => {
-                        // Ignore scan errors (no barcode found in frame)
+                        // Ignore - no barcode in frame
                     }
                 );
 
@@ -48,28 +70,46 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
             } catch (err) {
                 console.error('Scanner error:', err);
                 if (mounted) {
-                    setError('Unable to access camera. Please grant camera permission.');
+                    if (err instanceof Error) {
+                        if (err.name === 'NotAllowedError') {
+                            setError('Camera permission denied. Please allow camera access.');
+                        } else if (err.name === 'NotFoundError' || err.message.includes('No camera')) {
+                            setError('No camera found. Please connect a camera.');
+                        } else {
+                            setError(`Camera error: ${err.message}`);
+                        }
+                    } else {
+                        setError('Unable to start camera. Please try again.');
+                    }
                 }
             }
         };
 
-        startScanner();
+        // Small delay to ensure DOM is ready
+        const timeout = setTimeout(startScanner, 100);
 
         return () => {
             mounted = false;
+            clearTimeout(timeout);
             if (scannerRef.current) {
-                scannerRef.current.stop().catch(console.error);
+                scannerRef.current.stop().catch(() => { });
+                scannerRef.current = null;
             }
         };
-    }, [onScan]);
+    }, [handleScanSuccess]);
 
     return (
         <div className="fixed inset-0 z-[60] bg-black flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-4 text-white">
-                <h2 className="text-lg font-bold">Scan Barcode</h2>
+                <h2 className="text-lg font-bold">📷 Scan Barcode</h2>
                 <button
-                    onClick={onClose}
+                    onClick={() => {
+                        if (scannerRef.current) {
+                            scannerRef.current.stop().catch(() => { });
+                        }
+                        onClose();
+                    }}
                     className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,8 +123,8 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                 <div className="relative w-full max-w-sm">
                     <div
                         id="barcode-reader"
-                        ref={containerRef}
-                        className="w-full rounded-2xl overflow-hidden"
+                        className="w-full rounded-2xl overflow-hidden bg-gray-900"
+                        style={{ minHeight: '250px' }}
                     />
 
                     {!isScanning && !error && (
@@ -97,12 +137,13 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                     )}
 
                     {error && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl p-4">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-2xl p-4">
                             <div className="text-center text-white">
+                                <div className="text-4xl mb-4">📷</div>
                                 <p className="text-red-400 mb-4">{error}</p>
                                 <button
                                     onClick={onClose}
-                                    className="px-4 py-2 bg-white text-black rounded-xl font-medium"
+                                    className="px-6 py-2 bg-white text-black rounded-xl font-medium"
                                 >
                                     Close
                                 </button>
