@@ -1,12 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useProductStore } from '@/store/productStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { Product, Category, Location } from '@/types';
 import { notificationService } from '@/lib/notifications';
 import { useI18n, TranslationKey } from '@/lib/i18n';
 import { compressImage } from '@/lib/imageUtils';
+import { lookupBarcode } from '@/lib/productLookup';
+
+// Dynamic import for barcode scanner (client-side only)
+const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), {
+  ssr: false,
+  loading: () => null,
+});
 
 // Icons as SVG components
 const PlusIcon = () => (
@@ -292,6 +300,33 @@ function ProductModal({
     notifyTiming: '',
   });
 
+  // Barcode scanner state
+  const [showScanner, setShowScanner] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [scanMessage, setScanMessage] = useState('');
+
+  const handleBarcodeScan = async (barcode: string) => {
+    setShowScanner(false);
+    setIsLookingUp(true);
+    setScanMessage('Looking up product...');
+
+    const productInfo = await lookupBarcode(barcode);
+
+    if (productInfo.found && productInfo.name) {
+      setFormData(prev => ({
+        ...prev,
+        name: productInfo.name,
+        image: productInfo.imageUrl || prev.image,
+      }));
+      setScanMessage(`✅ Found: ${productInfo.name}`);
+    } else {
+      setScanMessage('❌ Product not found. Please enter name manually.');
+    }
+
+    setIsLookingUp(false);
+    setTimeout(() => setScanMessage(''), 3000);
+  };
+
   useEffect(() => {
     if (editingProduct) {
       setFormData({
@@ -431,20 +466,52 @@ function ProductModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Product Name */}
+          {/* Product Name with Scan Button */}
           <div>
             <label className="block text-sm font-semibold text-[rgb(var(--foreground))] mb-2">
               {t('productName')} <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
-              placeholder="e.g., Milk, Aspirin"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="flex-1 px-4 py-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-[rgb(var(--primary))] focus:border-transparent outline-none transition-all text-base"
+                placeholder="e.g., Milk, Aspirin"
+              />
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                disabled={isLookingUp}
+                className="px-4 py-3 rounded-xl bg-[rgb(var(--primary))] text-white hover:opacity-90 transition-all flex items-center gap-2 font-medium shrink-0"
+                title="Scan barcode"
+              >
+                {isLookingUp ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h2M4 12h2m10 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">Scan</span>
+              </button>
+            </div>
+            {/* Scan Status Message */}
+            {scanMessage && (
+              <p className={`mt-2 text-sm ${scanMessage.startsWith('✅') ? 'text-green-600' : scanMessage.startsWith('❌') ? 'text-red-500' : 'text-[rgb(var(--muted-foreground))]'}`}>
+                {scanMessage}
+              </p>
+            )}
           </div>
+
+          {/* Barcode Scanner Modal */}
+          {showScanner && (
+            <BarcodeScanner
+              onScan={handleBarcodeScan}
+              onClose={() => setShowScanner(false)}
+            />
+          )}
 
           {/* Product Image */}
           <div>
