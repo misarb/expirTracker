@@ -13,23 +13,35 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     const [isScanning, setIsScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const hasScannedRef = useRef(false);
+    const isScannerRunningRef = useRef(false);
 
-    // Memoize callback to prevent re-renders
-    const handleScanSuccess = useCallback((decodedText: string) => {
+    // Safely stop scanner
+    const stopScanner = useCallback(async () => {
+        if (scannerRef.current && isScannerRunningRef.current) {
+            isScannerRunningRef.current = false;
+            try {
+                await scannerRef.current.stop();
+            } catch {
+                // Ignore stop errors
+            }
+            scannerRef.current = null;
+        }
+    }, []);
+
+    // Handle successful scan
+    const handleScanSuccess = useCallback(async (decodedText: string) => {
         if (hasScannedRef.current) return;
         hasScannedRef.current = true;
 
-        // Stop scanner first, then call onScan
-        if (scannerRef.current) {
-            scannerRef.current.stop().then(() => {
-                onScan(decodedText);
-            }).catch(() => {
-                onScan(decodedText);
-            });
-        } else {
-            onScan(decodedText);
-        }
-    }, [onScan]);
+        await stopScanner();
+        onScan(decodedText);
+    }, [onScan, stopScanner]);
+
+    // Handle close button
+    const handleClose = useCallback(async () => {
+        await stopScanner();
+        onClose();
+    }, [onClose, stopScanner]);
 
     useEffect(() => {
         let mounted = true;
@@ -55,7 +67,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                         aspectRatio: 1.0,
                     },
                     (decodedText) => {
-                        if (mounted) {
+                        if (mounted && !hasScannedRef.current) {
                             handleScanSuccess(decodedText);
                         }
                     },
@@ -65,6 +77,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                 );
 
                 if (mounted) {
+                    isScannerRunningRef.current = true;
                     setIsScanning(true);
                 }
             } catch (err) {
@@ -91,7 +104,9 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         return () => {
             mounted = false;
             clearTimeout(timeout);
-            if (scannerRef.current) {
+            // Use sync version for cleanup
+            if (scannerRef.current && isScannerRunningRef.current) {
+                isScannerRunningRef.current = false;
                 scannerRef.current.stop().catch(() => { });
                 scannerRef.current = null;
             }
@@ -104,12 +119,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
             <div className="flex items-center justify-between p-4 text-white">
                 <h2 className="text-lg font-bold">📷 Scan Barcode</h2>
                 <button
-                    onClick={() => {
-                        if (scannerRef.current) {
-                            scannerRef.current.stop().catch(() => { });
-                        }
-                        onClose();
-                    }}
+                    onClick={handleClose}
                     className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,20 +147,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                             <div className="absolute bottom-4 right-4 w-8 h-8 border-r-4 border-b-4 border-green-400 rounded-br-lg" />
 
                             {/* Animated scan line */}
-                            <div
-                                className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-green-400 to-transparent shadow-[0_0_10px_2px_rgba(74,222,128,0.6)]"
-                                style={{
-                                    animation: 'scanLine 2s ease-in-out infinite',
-                                }}
-                            />
-
-                            {/* CSS Keyframes for scan line */}
-                            <style jsx>{`
-                          @keyframes scanLine {
-                            0%, 100% { top: 20%; }
-                            50% { top: 80%; }
-                          }
-                        `}</style>
+                            <div className="absolute left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-green-400 to-transparent shadow-[0_0_10px_2px_rgba(74,222,128,0.6)] animate-scan-line" />
                         </div>
                     )}
 
@@ -169,7 +166,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                                 <div className="text-4xl mb-4">📷</div>
                                 <p className="text-red-400 mb-4">{error}</p>
                                 <button
-                                    onClick={onClose}
+                                    onClick={handleClose}
                                     className="px-6 py-2 bg-white text-black rounded-xl font-medium"
                                 >
                                     Close
