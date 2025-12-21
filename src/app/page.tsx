@@ -791,19 +791,28 @@ function ProductModal({
 // Add Location Modal
 function AddLocationModal({
   isOpen,
-  onClose
+  onClose,
+  defaultParentId
 }: {
   isOpen: boolean;
   onClose: () => void;
+  defaultParentId?: string | null;
 }) {
-  const { addLocation, getTopLevelSpaces } = useProductStore();
+  const { addLocation, getTopLevelSpaces, locations } = useProductStore();
   const [formData, setFormData] = useState({
     name: '',
     icon: '📁',
     color: '#6366F1',
     description: '',
-    parentId: null as string | null,
+    parentId: defaultParentId || null as string | null,
   });
+
+  // Update parentId when defaultParentId changes
+  useEffect(() => {
+    if (defaultParentId !== undefined) {
+      setFormData(prev => ({ ...prev, parentId: defaultParentId }));
+    }
+  }, [defaultParentId]);
 
   const emojiOptions = [
     // Folders & Organization
@@ -821,6 +830,9 @@ function AddLocationModal({
   // Get top-level spaces for parent selector
   const topLevelSpaces = getTopLevelSpaces();
 
+  // Get parent name for display
+  const parentSpace = defaultParentId ? locations.find(l => l.id === defaultParentId) : null;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addLocation(formData);
@@ -836,9 +848,16 @@ function AddLocationModal({
       <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in">
         {/* Header with Close Button */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">
-            Add New Space
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">
+              {defaultParentId ? 'Add Sub-Space' : 'Add New Space'}
+            </h2>
+            {parentSpace && (
+              <p className="text-sm text-[rgb(var(--muted-foreground))] mt-0.5">
+                Inside {parentSpace.icon} {parentSpace.name}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -1064,43 +1083,6 @@ function SettingsModal({
         )}
       </div>
 
-      {/* Manage Spaces */}
-      <div>
-        <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
-          <span className="text-xl">📁</span>
-          {t('manageLocations')}
-        </h3>
-        <div className="space-y-2">
-          {locations.map(loc => (
-            <div key={loc.id} className="flex items-center justify-between p-3 bg-[rgb(var(--secondary))] rounded-xl border border-[rgb(var(--border))]">
-              <div className="flex items-center gap-3 mb-1">
-                <span className="text-2xl">{loc.icon}</span>
-                <h3 className="font-medium text-[rgb(var(--foreground))]">
-                  {t(`loc_${loc.id}` as TranslationKey) !== `loc_${loc.id}` ? t(`loc_${loc.id}` as TranslationKey) : loc.name}
-                </h3>
-              </div>
-              {locations.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    console.log('Delete button clicked for:', loc.name, loc.id);
-                    setLocationToDelete(loc.id);
-                  }}
-                  className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                  title={t('delete')}
-                >
-                  <TrashIcon />
-                </button>
-              )}
-            </div>
-          ))}
-          {locations.length <= 1 && (
-            <p className="text-xs text-[rgb(var(--muted-foreground))] italic px-1">Cannot delete the last space.</p>
-          )}
-        </div>
-      </div>
-
       {/* Data Management */}
       <div>
         <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-3 flex items-center gap-2">
@@ -1316,12 +1298,13 @@ function StatsCard({ title, count, icon, color, onClick, gradientFrom, gradientT
 
 export default function Home() {
   const { t, language, setLanguage } = useI18n();
-  const { products, categories, locations, deleteProduct } = useProductStore();
+  const { products, categories, locations, deleteProduct, deleteLocation } = useProductStore();
   const { theme, setTheme, notifications } = useSettingsStore();
 
   const [currentView, setCurrentView] = useState<'home' | 'inventory' | 'settings' | 'support'>('home');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [defaultLocationParentId, setDefaultLocationParentId] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1552,7 +1535,7 @@ export default function Home() {
                   setSelectedLocation('all');
                   setSelectedStatus('safe');
                 }}
-                className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-4 text-white text-left hover:scale-[1.02] transition-transform"
+                className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-green-500 rounded-2xl p-4 text-white text-left hover:scale-[1.02] transition-transform"
               >
                 <div className="relative z-10">
                   <span className="text-3xl font-bold">{safeProducts}</span>
@@ -1842,19 +1825,38 @@ export default function Home() {
                           )}
                         </button>
 
-                        {/* Quick Add Sub-Space Button - bottom right */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsLocationModalOpen(true);
-                          }}
-                          className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))]/80 flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-                          title="Add sub-space"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                          </svg>
-                        </button>
+                        {/* Action buttons - bottom right, always visible but subtle */}
+                        <div className="absolute bottom-3 right-3 flex gap-1.5">
+                          {/* Delete Space Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Delete "${parentLoc.name}" and all its contents?`)) {
+                                deleteLocation(parentLoc.id);
+                              }
+                            }}
+                            className="w-7 h-7 rounded-full bg-red-500/70 hover:bg-red-500 flex items-center justify-center text-white shadow-md hover:scale-110 transition-all"
+                            title="Delete space"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                          {/* Add Sub-Space Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDefaultLocationParentId(parentLoc.id);
+                              setIsLocationModalOpen(true);
+                            }}
+                            className="w-7 h-7 rounded-full bg-[rgb(var(--primary))]/70 hover:bg-[rgb(var(--primary))] flex items-center justify-center text-white shadow-md hover:scale-110 transition-all"
+                            title="Add sub-space"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Expanded sub-spaces */}
@@ -1904,6 +1906,24 @@ export default function Home() {
                     </div>
                   );
                 })}
+
+                {/* Add New Space Card */}
+                <div className="col-span-1">
+                  <button
+                    onClick={() => {
+                      setDefaultLocationParentId(null);
+                      setIsLocationModalOpen(true);
+                    }}
+                    className="w-full bg-[rgb(var(--card))] rounded-2xl p-4 shadow-sm border-2 border-dashed border-[rgb(var(--border))] hover:border-[rgb(var(--primary))] hover:bg-[rgb(var(--secondary))] transition-all duration-300 text-left group min-h-[120px] flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[rgb(var(--primary))]/10 flex items-center justify-center group-hover:bg-[rgb(var(--primary))]/20 transition-colors">
+                      <svg className="w-6 h-6 text-[rgb(var(--primary))]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-[rgb(var(--muted-foreground))] group-hover:text-[rgb(var(--primary))]">Add New Space</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -2141,7 +2161,11 @@ export default function Home() {
       />
       <AddLocationModal
         isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
+        onClose={() => {
+          setIsLocationModalOpen(false);
+          setDefaultLocationParentId(null);
+        }}
+        defaultParentId={defaultLocationParentId}
       />
     </div>
   );
