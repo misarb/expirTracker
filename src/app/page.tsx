@@ -1462,16 +1462,18 @@ export default function Home() {
                 <div className="relative w-32 h-32">
                   <svg className="w-32 h-32 transform -rotate-90">
                     <circle cx="64" cy="64" r="45" stroke="rgba(255,255,255,0.2)" strokeWidth="8" fill="none" />
-                    <circle
-                      cx="64" cy="64" r="45"
-                      stroke="url(#progressGradient)"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      className="transition-all duration-1000"
-                    />
+                    {totalProducts > 0 && (
+                      <circle
+                        cx="64" cy="64" r="45"
+                        stroke="url(#progressGradient)"
+                        strokeWidth="8"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        className="transition-all duration-1000"
+                      />
+                    )}
                     <defs>
                       <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stopColor="#fbbf24" />
@@ -1480,20 +1482,43 @@ export default function Home() {
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-bold">{healthPercent}%</span>
-                    <span className="text-xs text-white/70">healthy</span>
+                    {totalProducts > 0 ? (
+                      <>
+                        <span className="text-2xl font-bold">{healthPercent}%</span>
+                        <span className="text-xs text-white/70">healthy</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-3xl">📦</span>
+                        <span className="text-xs text-white/70">No items</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Motivational Message */}
                 <div className="text-center mt-4">
-                  <h2 className="text-xl font-bold flex items-center justify-center gap-2">
-                    <span className="text-yellow-300">⚡</span>
-                    {healthPercent >= 80 ? 'Great job!' : healthPercent >= 50 ? 'Keep going!' : 'Check your items!'}
-                  </h2>
-                  <p className="text-white/70 text-sm mt-1">
-                    {safeProducts} of {totalProducts} products are safe
-                  </p>
+                  {totalProducts > 0 ? (
+                    <>
+                      <h2 className="text-xl font-bold flex items-center justify-center gap-2">
+                        <span className="text-yellow-300">⚡</span>
+                        {healthPercent >= 80 ? 'Great job!' : healthPercent >= 50 ? 'Keep going!' : 'Check your items!'}
+                      </h2>
+                      <p className="text-white/70 text-sm mt-1">
+                        {safeProducts} of {totalProducts} products are safe
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-xl font-bold flex items-center justify-center gap-2">
+                        <span className="text-yellow-300">👋</span>
+                        Welcome!
+                      </h2>
+                      <p className="text-white/70 text-sm mt-1">
+                        Add your first product to get started
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
