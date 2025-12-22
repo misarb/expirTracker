@@ -48,7 +48,7 @@ class BarcodeService {
     /**
      * Fetch from API with error handling
      */
-    async fetchFromAPI(url: string, timeout = 10000): Promise<OpenFoodFactsProduct | null> {
+    async fetchFromAPI(url: string, timeout = 5000): Promise<OpenFoodFactsProduct | null> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
