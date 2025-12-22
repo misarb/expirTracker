@@ -799,6 +799,7 @@ function AddLocationModal({
   defaultParentId?: string | null;
 }) {
   const { addLocation, getTopLevelSpaces, locations } = useProductStore();
+  const { t } = useI18n();
   const [formData, setFormData] = useState({
     name: '',
     icon: '📁',
@@ -850,7 +851,7 @@ function AddLocationModal({
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">
-              {defaultParentId ? 'Add Sub-Space' : 'Add New Space'}
+              {defaultParentId ? t('addSubSpace') : t('addNewSpace')}
             </h2>
             {parentSpace && (
               <p className="text-sm text-[rgb(var(--muted-foreground))] mt-0.5">
@@ -984,6 +985,7 @@ function DeleteSpaceModal({
     getChildSpaces,
     updateProduct
   } = useProductStore();
+  const { t } = useI18n();
   const [targetLocation, setTargetLocation] = useState<string>('');
   const [deleteMode, setDeleteMode] = useState<'delete' | 'move' | 'select'>('delete');
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
@@ -1057,7 +1059,7 @@ function DeleteSpaceModal({
             </svg>
           </div>
           <div>
-            <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">Delete Space</h2>
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">{t('deleteSpace')}</h2>
             <p className="text-sm text-[rgb(var(--muted-foreground))]">{space.icon} {space.name}</p>
           </div>
         </div>
@@ -1068,9 +1070,9 @@ function DeleteSpaceModal({
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4">
             <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
               <div className="text-sm">
-                <p><strong>{productsInSpace.length}</strong> products in this space</p>
+                <p><strong>{productsInSpace.length}</strong> {t('productsInSpace')}</p>
                 {childSpaces.length > 0 && (
-                  <p><strong>{childSpaces.length}</strong> sub-spaces will also be deleted</p>
+                  <p><strong>{childSpaces.length}</strong> {t('subSpacesWillBeDeleted')}</p>
                 )}
               </div>
             </div>
@@ -1092,8 +1094,8 @@ function DeleteSpaceModal({
                   {deleteMode === 'delete' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                 </div>
                 <div>
-                  <p className="font-medium text-sm text-[rgb(var(--foreground))]">Delete everything</p>
-                  <p className="text-xs text-[rgb(var(--muted-foreground))]">Remove space and all {productsInSpace.length} products</p>
+                  <p className="font-medium text-sm text-[rgb(var(--foreground))]">{t('deleteEverything')}</p>
+                  <p className="text-xs text-[rgb(var(--muted-foreground))]">{t('removeSpaceAndProducts')}</p>
                 </div>
               </div>
             </button>
@@ -1113,8 +1115,8 @@ function DeleteSpaceModal({
                     {deleteMode === 'move' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                   </div>
                   <div>
-                    <p className="font-medium text-sm text-[rgb(var(--foreground))]">Move all products</p>
-                    <p className="text-xs text-[rgb(var(--muted-foreground))]">Keep all {productsInSpace.length} products, move to another space</p>
+                    <p className="font-medium text-sm text-[rgb(var(--foreground))]">{t('moveAllProducts')}</p>
+                    <p className="text-xs text-[rgb(var(--muted-foreground))]">{t('keepAllProducts')}</p>
                   </div>
                 </div>
               </button>
@@ -1135,8 +1137,8 @@ function DeleteSpaceModal({
                     {deleteMode === 'select' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                   </div>
                   <div>
-                    <p className="font-medium text-sm text-[rgb(var(--foreground))]">Choose which to keep</p>
-                    <p className="text-xs text-[rgb(var(--muted-foreground))]">Select specific products to move</p>
+                    <p className="font-medium text-sm text-[rgb(var(--foreground))]">{t('chooseWhichToKeep')}</p>
+                    <p className="text-xs text-[rgb(var(--muted-foreground))]">{t('selectProductsToMove')}</p>
                   </div>
                 </div>
               </button>
@@ -1154,7 +1156,7 @@ function DeleteSpaceModal({
                 onChange={(e) => setTargetLocation(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-blue-500 outline-none"
               >
-                <option value="">Select a space...</option>
+                <option value="">{t('selectSpace')}</option>
                 {otherLocations.map(loc => (
                   <option key={loc.id} value={loc.id}>{loc.icon} {loc.name}</option>
                 ))}
@@ -1167,7 +1169,7 @@ function DeleteSpaceModal({
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <p className="text-sm font-medium text-[rgb(var(--foreground))]">
-                  Select products to keep ({selectedProducts.size}/{productsInSpace.length})
+                  {t('selectProductsToKeep')} ({selectedProducts.size}/{productsInSpace.length})
                 </p>
                 <div className="flex gap-2">
                   <button onClick={selectAll} className="text-xs text-blue-500 hover:underline">All</button>
@@ -1193,9 +1195,9 @@ function DeleteSpaceModal({
                       </p>
                     </div>
                     {selectedProducts.has(product.id) ? (
-                      <span className="text-xs text-emerald-500 font-medium">Keep</span>
+                      <span className="text-xs text-emerald-500 font-medium">{t('keepProduct')}</span>
                     ) : (
-                      <span className="text-xs text-red-400">Delete</span>
+                      <span className="text-xs text-red-400">{t('delete')}</span>
                     )}
                   </label>
                 ))}
@@ -1210,7 +1212,7 @@ function DeleteSpaceModal({
             onClick={onClose}
             className="flex-1 px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={handleDelete}
@@ -1223,10 +1225,10 @@ function DeleteSpaceModal({
               }`}
           >
             {deleteMode === 'delete'
-              ? 'Delete All'
+              ? t('deleteAll')
               : deleteMode === 'move'
-                ? 'Move & Delete'
-                : `Keep ${selectedProducts.size} & Delete`
+                ? t('moveAndDelete')
+                : t('keepAndDelete')
             }
           </button>
         </div>
@@ -2103,7 +2105,7 @@ export default function Home() {
                           {/* Description or sub-space count */}
                           {!hasChildren && (
                             <p className="text-xs text-[rgb(var(--muted-foreground))]">
-                              {totalProducts === 0 ? '✨ Empty space' : parentLoc.description || 'Click to view'}
+                              {totalProducts === 0 ? `✨ ${t('emptySpace')}` : parentLoc.description || t('clickToView')}
                             </p>
                           )}
 
@@ -2187,7 +2189,7 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                       </svg>
                     </div>
-                    <span className="text-sm font-medium text-[rgb(var(--muted-foreground))] group-hover:text-[rgb(var(--primary))]">Add New Space</span>
+                    <span className="text-sm font-medium text-[rgb(var(--muted-foreground))] group-hover:text-[rgb(var(--primary))]">{t('addNewSpace')}</span>
                   </button>
                 </div>
               </div>

@@ -103,7 +103,42 @@ export type TranslationKey =
     | 'importWarning'
     | 'exportSuccess'
     | 'importSuccess'
-    | 'invalidFile';
+    | 'invalidFile'
+    // Space Management
+    | 'emptySpace'
+    | 'clickToView'
+    | 'deleteSpace'
+    | 'addSubSpace'
+    | 'addNewSpace'
+    | 'insideSpace'
+    | 'topLevel'
+    | 'spaceName'
+    | 'parentSpace'
+    // Delete Modal
+    | 'deleteEverything'
+    | 'removeSpaceAndProducts'
+    | 'moveAllProducts'
+    | 'keepAllProducts'
+    | 'chooseWhichToKeep'
+    | 'selectProductsToMove'
+    | 'productsInSpace'
+    | 'subSpacesWillBeDeleted'
+    | 'moveTo'
+    | 'selectSpace'
+    | 'selectProductsToKeep'
+    | 'keepProduct'
+    | 'deleteProduct'
+    | 'deleteAll'
+    | 'moveAndDelete'
+    | 'keepAndDelete'
+    // Health & Stats
+    | 'healthy'
+    | 'greatJob'
+    | 'keepGoing'
+    | 'checkItems'
+    | 'welcome'
+    | 'addFirstProduct'
+    | 'noItems';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
     en: {
@@ -205,6 +240,41 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         exportSuccess: 'Data exported successfully!',
         importSuccess: 'Data imported successfully!',
         invalidFile: 'Invalid backup file.',
+        // Space Management
+        emptySpace: 'Empty space',
+        clickToView: 'Click to view',
+        deleteSpace: 'Delete Space',
+        addSubSpace: 'Add Sub-Space',
+        addNewSpace: 'Add New Space',
+        insideSpace: 'Inside',
+        topLevel: 'Top Level (no parent)',
+        spaceName: 'Space Name',
+        parentSpace: 'Parent Space',
+        // Delete Modal
+        deleteEverything: 'Delete everything',
+        removeSpaceAndProducts: 'Remove space and all products',
+        moveAllProducts: 'Move all products',
+        keepAllProducts: 'Keep all products, move to another space',
+        chooseWhichToKeep: 'Choose which to keep',
+        selectProductsToMove: 'Select specific products to move',
+        productsInSpace: 'products in this space',
+        subSpacesWillBeDeleted: 'sub-spaces will also be deleted',
+        moveTo: 'Move to',
+        selectSpace: 'Select a space...',
+        selectProductsToKeep: 'Select products to keep',
+        keepProduct: 'Keep',
+        deleteProduct: 'Delete',
+        deleteAll: 'Delete All',
+        moveAndDelete: 'Move & Delete',
+        keepAndDelete: 'Keep & Delete',
+        // Health & Stats
+        healthy: 'healthy',
+        greatJob: 'Great job! Your products are well managed.',
+        keepGoing: 'Keep going! Check expiring items soon.',
+        checkItems: 'Check your items! Some need attention.',
+        welcome: 'Welcome! Add your first product to get started.',
+        addFirstProduct: 'Add your first product',
+        noItems: 'No items',
     },
     fr: {
         appName: 'ExpireTrack',
@@ -305,6 +375,41 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         exportSuccess: 'Données exportées avec succès !',
         importSuccess: 'Données importées avec succès !',
         invalidFile: 'Fichier de sauvegarde invalide.',
+        // Space Management
+        emptySpace: 'Espace vide',
+        clickToView: 'Cliquez pour voir',
+        deleteSpace: 'Supprimer l\'espace',
+        addSubSpace: 'Ajouter sous-espace',
+        addNewSpace: 'Ajouter un espace',
+        insideSpace: 'Dans',
+        topLevel: 'Niveau principal (sans parent)',
+        spaceName: 'Nom de l\'espace',
+        parentSpace: 'Espace parent',
+        // Delete Modal
+        deleteEverything: 'Tout supprimer',
+        removeSpaceAndProducts: 'Supprimer l\'espace et tous les produits',
+        moveAllProducts: 'Déplacer tous les produits',
+        keepAllProducts: 'Garder tous les produits, déplacer ailleurs',
+        chooseWhichToKeep: 'Choisir lesquels garder',
+        selectProductsToMove: 'Sélectionner les produits à déplacer',
+        productsInSpace: 'produits dans cet espace',
+        subSpacesWillBeDeleted: 'sous-espaces seront aussi supprimés',
+        moveTo: 'Déplacer vers',
+        selectSpace: 'Sélectionner un espace...',
+        selectProductsToKeep: 'Sélectionner les produits à garder',
+        keepProduct: 'Garder',
+        deleteProduct: 'Supprimer',
+        deleteAll: 'Tout supprimer',
+        moveAndDelete: 'Déplacer et supprimer',
+        keepAndDelete: 'Garder et supprimer',
+        // Health & Stats
+        healthy: 'sain',
+        greatJob: 'Bravo ! Vos produits sont bien gérés.',
+        keepGoing: 'Continuez ! Vérifiez les produits bientôt.',
+        checkItems: 'Attention ! Certains produits nécessitent votre attention.',
+        welcome: 'Bienvenue ! Ajoutez votre premier produit.',
+        addFirstProduct: 'Ajouter votre premier produit',
+        noItems: 'Aucun article',
     },
     ar: {
         appName: 'ExpireTrack',
@@ -405,6 +510,41 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
         exportSuccess: 'تم تصدير البيانات بنجاح!',
         importSuccess: 'تم استيراد البيانات بنجاح!',
         invalidFile: 'ملف نسخ احتياطي غير صالح.',
+        // Space Management
+        emptySpace: 'مساحة فارغة',
+        clickToView: 'انقر للعرض',
+        deleteSpace: 'حذف المساحة',
+        addSubSpace: 'إضافة مساحة فرعية',
+        addNewSpace: 'إضافة مساحة جديدة',
+        insideSpace: 'داخل',
+        topLevel: 'المستوى الأعلى (بدون أب)',
+        spaceName: 'اسم المساحة',
+        parentSpace: 'المساحة الأم',
+        // Delete Modal
+        deleteEverything: 'حذف الكل',
+        removeSpaceAndProducts: 'حذف المساحة وجميع المنتجات',
+        moveAllProducts: 'نقل جميع المنتجات',
+        keepAllProducts: 'الاحتفاظ بجميع المنتجات ونقلها',
+        chooseWhichToKeep: 'اختر ما تريد الاحتفاظ به',
+        selectProductsToMove: 'حدد المنتجات للنقل',
+        productsInSpace: 'منتجات في هذه المساحة',
+        subSpacesWillBeDeleted: 'سيتم حذف المساحات الفرعية أيضاً',
+        moveTo: 'نقل إلى',
+        selectSpace: 'اختر مساحة...',
+        selectProductsToKeep: 'حدد المنتجات للاحتفاظ',
+        keepProduct: 'احتفاظ',
+        deleteProduct: 'حذف',
+        deleteAll: 'حذف الكل',
+        moveAndDelete: 'نقل وحذف',
+        keepAndDelete: 'احتفاظ وحذف',
+        // Health & Stats
+        healthy: 'صحي',
+        greatJob: 'أحسنت! منتجاتك مُدارة بشكل جيد.',
+        keepGoing: 'استمر! تحقق من المنتجات القريبة.',
+        checkItems: 'تحقق من منتجاتك! بعضها يحتاج اهتماماً.',
+        welcome: 'مرحباً! أضف منتجك الأول.',
+        addFirstProduct: 'أضف منتجك الأول',
+        noItems: 'لا توجد عناصر',
     }
 };
 
