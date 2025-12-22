@@ -27,10 +27,10 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         setDetectedCodes(prev => {
             const newCodes = [...prev, code].slice(-5); // Keep last 5
 
-            // If we have 2 consecutive identical codes, it's a valid scan
-            if (newCodes.length >= 2) {
-                const lastTwo = newCodes.slice(-2);
-                if (lastTwo.every(c => c === code)) {
+            // If we have 3 consecutive identical codes, it's a valid scan
+            if (newCodes.length >= 3) {
+                const lastThree = newCodes.slice(-3);
+                if (lastThree.every(c => c === code)) {
                     hasScannedRef.current = true;
 
                     console.log('✅ Barcode confirmed:', code, 'Format:', result.codeResult.format);
@@ -85,7 +85,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                             halfSample: true,
                         },
                         numOfWorkers: navigator.hardwareConcurrency || 4,
-                        frequency: 20,
+                        frequency: 15,
                         decoder: {
                             readers: [
                                 "ean_reader",
