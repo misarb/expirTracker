@@ -966,6 +966,276 @@ function AddLocationModal({
   );
 }
 
+// Delete Space Confirmation Modal with Product Selection
+function DeleteSpaceModal({
+  isOpen,
+  onClose,
+  spaceId
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  spaceId: string | null;
+}) {
+  const {
+    locations,
+    deleteLocationWithProducts,
+    deleteLocationAndMoveProducts,
+    getProductsByLocationIncludingChildren,
+    getChildSpaces,
+    updateProduct
+  } = useProductStore();
+  const [targetLocation, setTargetLocation] = useState<string>('');
+  const [deleteMode, setDeleteMode] = useState<'delete' | 'move' | 'select'>('delete');
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+
+  const space = spaceId ? locations.find(l => l.id === spaceId) : null;
+  const productsInSpace = spaceId ? getProductsByLocationIncludingChildren(spaceId) : [];
+  const childSpaces = spaceId ? getChildSpaces(spaceId) : [];
+  const otherLocations = locations.filter(l => l.id !== spaceId && (!spaceId || l.parentId !== spaceId));
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDeleteMode('delete');
+      setTargetLocation('');
+      setSelectedProducts(new Set());
+    }
+  }, [isOpen, spaceId]);
+
+  const toggleProduct = (productId: string) => {
+    setSelectedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedProducts(new Set(productsInSpace.map(p => p.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedProducts(new Set());
+  };
+
+  const handleDelete = () => {
+    if (!spaceId) return;
+
+    if (deleteMode === 'delete') {
+      // Delete space and all products
+      deleteLocationWithProducts(spaceId);
+    } else if (deleteMode === 'move' && targetLocation) {
+      // Move all products to target, then delete space
+      deleteLocationAndMoveProducts(spaceId, targetLocation);
+    } else if (deleteMode === 'select' && targetLocation) {
+      // Move only selected products, delete the rest with the space
+      // First, move selected products
+      selectedProducts.forEach(productId => {
+        updateProduct(productId, { locationId: targetLocation });
+      });
+      // Then delete the space with remaining products
+      deleteLocationWithProducts(spaceId);
+    }
+    onClose();
+  };
+
+  if (!isOpen || !space) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[rgb(var(--card))] rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-[rgb(var(--foreground))]">Delete Space</h2>
+            <p className="text-sm text-[rgb(var(--muted-foreground))]">{space.icon} {space.name}</p>
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto flex-1 -mx-6 px-6">
+          {/* Info Banner */}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <div className="text-sm">
+                <p><strong>{productsInSpace.length}</strong> products in this space</p>
+                {childSpaces.length > 0 && (
+                  <p><strong>{childSpaces.length}</strong> sub-spaces will also be deleted</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-2 mb-4">
+            {/* Option 1: Delete All */}
+            <button
+              onClick={() => setDeleteMode('delete')}
+              className={`w-full p-3 rounded-xl border-2 text-left transition-all ${deleteMode === 'delete'
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                : 'border-[rgb(var(--border))] hover:border-red-300'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${deleteMode === 'delete' ? 'border-red-500 bg-red-500' : 'border-gray-300'
+                  }`}>
+                  {deleteMode === 'delete' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-[rgb(var(--foreground))]">Delete everything</p>
+                  <p className="text-xs text-[rgb(var(--muted-foreground))]">Remove space and all {productsInSpace.length} products</p>
+                </div>
+              </div>
+            </button>
+
+            {/* Option 2: Move All Products */}
+            {productsInSpace.length > 0 && otherLocations.length > 0 && (
+              <button
+                onClick={() => setDeleteMode('move')}
+                className={`w-full p-3 rounded-xl border-2 text-left transition-all ${deleteMode === 'move'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-[rgb(var(--border))] hover:border-blue-300'
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${deleteMode === 'move' ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                    }`}>
+                    {deleteMode === 'move' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm text-[rgb(var(--foreground))]">Move all products</p>
+                    <p className="text-xs text-[rgb(var(--muted-foreground))]">Keep all {productsInSpace.length} products, move to another space</p>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            {/* Option 3: Select which to keep */}
+            {productsInSpace.length > 0 && otherLocations.length > 0 && (
+              <button
+                onClick={() => setDeleteMode('select')}
+                className={`w-full p-3 rounded-xl border-2 text-left transition-all ${deleteMode === 'select'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                  : 'border-[rgb(var(--border))] hover:border-emerald-300'
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${deleteMode === 'select' ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'
+                    }`}>
+                    {deleteMode === 'select' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm text-[rgb(var(--foreground))]">Choose which to keep</p>
+                    <p className="text-xs text-[rgb(var(--muted-foreground))]">Select specific products to move</p>
+                  </div>
+                </div>
+              </button>
+            )}
+          </div>
+
+          {/* Target Location Selector (for move/select modes) */}
+          {(deleteMode === 'move' || deleteMode === 'select') && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-2">
+                Move {deleteMode === 'select' ? `${selectedProducts.size} selected` : 'products'} to:
+              </label>
+              <select
+                value={targetLocation}
+                onChange={(e) => setTargetLocation(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--background))] text-[rgb(var(--foreground))] focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="">Select a space...</option>
+                {otherLocations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.icon} {loc.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Product Selection List (for select mode) */}
+          {deleteMode === 'select' && (
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-sm font-medium text-[rgb(var(--foreground))]">
+                  Select products to keep ({selectedProducts.size}/{productsInSpace.length})
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={selectAll} className="text-xs text-blue-500 hover:underline">All</button>
+                  <button onClick={selectNone} className="text-xs text-gray-500 hover:underline">None</button>
+                </div>
+              </div>
+              <div className="max-h-48 overflow-y-auto border border-[rgb(var(--border))] rounded-xl divide-y divide-[rgb(var(--border))]">
+                {productsInSpace.map(product => (
+                  <label
+                    key={product.id}
+                    className="flex items-center gap-3 p-3 hover:bg-[rgb(var(--secondary))] cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.has(product.id)}
+                      onChange={() => toggleProduct(product.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-[rgb(var(--foreground))] truncate">{product.name}</p>
+                      <p className="text-xs text-[rgb(var(--muted-foreground))]">
+                        Expires: {new Date(product.expirationDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {selectedProducts.has(product.id) ? (
+                      <span className="text-xs text-emerald-500 font-medium">Keep</span>
+                    ) : (
+                      <span className="text-xs text-red-400">Delete</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions - Fixed at bottom */}
+        <div className="flex gap-3 pt-4 border-t border-[rgb(var(--border))] mt-4">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-[rgb(var(--border))] text-[rgb(var(--foreground))] hover:bg-[rgb(var(--secondary))] transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={(deleteMode === 'move' || deleteMode === 'select') && !targetLocation}
+            className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-all ${deleteMode === 'delete'
+              ? 'bg-red-500 text-white hover:bg-red-600'
+              : deleteMode === 'select'
+                ? 'bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed'
+              }`}
+          >
+            {deleteMode === 'delete'
+              ? 'Delete All'
+              : deleteMode === 'move'
+                ? 'Move & Delete'
+                : `Keep ${selectedProducts.size} & Delete`
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // Settings Modal with Notifications
 function SettingsModal({
   isOpen,
@@ -1298,13 +1568,14 @@ function StatsCard({ title, count, icon, color, onClick, gradientFrom, gradientT
 
 export default function Home() {
   const { t, language, setLanguage } = useI18n();
-  const { products, categories, locations, deleteProduct, deleteLocation } = useProductStore();
+  const { products, categories, locations, deleteProduct } = useProductStore();
   const { theme, setTheme, notifications } = useSettingsStore();
 
   const [currentView, setCurrentView] = useState<'home' | 'inventory' | 'settings' | 'support'>('home');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [defaultLocationParentId, setDefaultLocationParentId] = useState<string | null>(null);
+  const [deleteSpaceId, setDeleteSpaceId] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1774,11 +2045,39 @@ export default function Home() {
                         >
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-3xl">{parentLoc.icon}</span>
-                            {hasChildren && (
-                              <svg className={`w-5 h-5 text-[rgb(var(--muted-foreground))] transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {/* Action buttons - inline in header */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteSpaceId(parentLoc.id);
+                                }}
+                                className="w-6 h-6 rounded-full bg-red-500/60 hover:bg-red-500 flex items-center justify-center text-white hover:scale-110 transition-all"
+                                title="Delete space"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDefaultLocationParentId(parentLoc.id);
+                                  setIsLocationModalOpen(true);
+                                }}
+                                className="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/60 hover:bg-[rgb(var(--primary))] flex items-center justify-center text-white hover:scale-110 transition-all"
+                                title="Add sub-space"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                              </button>
+                              {hasChildren && (
+                                <svg className={`w-5 h-5 text-[rgb(var(--muted-foreground))] transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              )}
+                            </div>
                           </div>
 
                           <h3 className="text-lg font-bold text-[rgb(var(--foreground))] mb-1 group-hover:text-[rgb(var(--primary))] transition-colors">
@@ -1824,39 +2123,6 @@ export default function Home() {
                             </div>
                           )}
                         </button>
-
-                        {/* Action buttons - bottom right, always visible but subtle */}
-                        <div className="absolute bottom-3 right-3 flex gap-1.5">
-                          {/* Delete Space Button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(`Delete "${parentLoc.name}" and all its contents?`)) {
-                                deleteLocation(parentLoc.id);
-                              }
-                            }}
-                            className="w-7 h-7 rounded-full bg-red-500/70 hover:bg-red-500 flex items-center justify-center text-white shadow-md hover:scale-110 transition-all"
-                            title="Delete space"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                          {/* Add Sub-Space Button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDefaultLocationParentId(parentLoc.id);
-                              setIsLocationModalOpen(true);
-                            }}
-                            className="w-7 h-7 rounded-full bg-[rgb(var(--primary))]/70 hover:bg-[rgb(var(--primary))] flex items-center justify-center text-white shadow-md hover:scale-110 transition-all"
-                            title="Add sub-space"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                          </button>
-                        </div>
                       </div>
 
                       {/* Expanded sub-spaces */}
@@ -2166,6 +2432,11 @@ export default function Home() {
           setDefaultLocationParentId(null);
         }}
         defaultParentId={defaultLocationParentId}
+      />
+      <DeleteSpaceModal
+        isOpen={deleteSpaceId !== null}
+        onClose={() => setDeleteSpaceId(null)}
+        spaceId={deleteSpaceId}
       />
     </div>
   );

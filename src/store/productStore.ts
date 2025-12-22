@@ -43,6 +43,9 @@ interface ProductStore {
     addLocation: (location: Omit<Location, 'id'>) => void;
     updateLocation: (id: string, updates: Partial<Location>) => void;
     deleteLocation: (id: string) => void;
+    deleteLocationWithProducts: (id: string) => void;
+    deleteLocationAndMoveProducts: (id: string, targetLocationId: string) => void;
+    getProductsByLocationIncludingChildren: (locationId: string) => Product[];
 
     // Computed helpers
     getProductsByStatus: (status: ProductStatus) => Product[];
@@ -182,6 +185,57 @@ export const useProductStore = create<ProductStore>()(
                     return newState;
                 });
                 console.log('deleteLocation completed');
+            },
+
+            deleteLocationWithProducts: (id) => {
+                set((state) => {
+                    // Get all child location IDs recursively
+                    const getAllChildIds = (parentId: string): string[] => {
+                        const children = state.locations.filter(l => l.parentId === parentId);
+                        return children.flatMap(child => [child.id, ...getAllChildIds(child.id)]);
+                    };
+                    const allLocationIds = [id, ...getAllChildIds(id)];
+
+                    return {
+                        // Remove location and all its children
+                        locations: state.locations.filter(l => !allLocationIds.includes(l.id)),
+                        // Delete all products in these locations
+                        products: state.products.filter(p => !allLocationIds.includes(p.locationId)),
+                    };
+                });
+            },
+
+            deleteLocationAndMoveProducts: (id, targetLocationId) => {
+                set((state) => {
+                    // Get all child location IDs recursively
+                    const getAllChildIds = (parentId: string): string[] => {
+                        const children = state.locations.filter(l => l.parentId === parentId);
+                        return children.flatMap(child => [child.id, ...getAllChildIds(child.id)]);
+                    };
+                    const allLocationIds = [id, ...getAllChildIds(id)];
+
+                    return {
+                        // Remove location and all its children
+                        locations: state.locations.filter(l => !allLocationIds.includes(l.id)),
+                        // Move all products from these locations to target
+                        products: state.products.map(p =>
+                            allLocationIds.includes(p.locationId)
+                                ? { ...p, locationId: targetLocationId }
+                                : p
+                        ),
+                    };
+                });
+            },
+
+            getProductsByLocationIncludingChildren: (locationId) => {
+                const state = get();
+                // Get all child location IDs recursively
+                const getAllChildIds = (parentId: string): string[] => {
+                    const children = state.locations.filter(l => l.parentId === parentId);
+                    return children.flatMap(child => [child.id, ...getAllChildIds(child.id)]);
+                };
+                const allLocationIds = [locationId, ...getAllChildIds(locationId)];
+                return state.products.filter(p => allLocationIds.includes(p.locationId));
             },
 
             importData: (data) => {
