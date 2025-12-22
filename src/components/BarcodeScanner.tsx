@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import Quagga from '@ericblade/quagga2';
 
 interface BarcodeScannerProps {
     onScan: (barcode: string) => void;
@@ -11,162 +11,143 @@ interface BarcodeScannerProps {
 export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
     const [error, setError] = useState<string>('');
     const [isScanning, setIsScanning] = useState(false);
-    const [statusMessage, setStatusMessage] = useState('Initializing...');
-    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const [statusMessage, setStatusMessage] = useState('Initializing camera...');
+    const [detectedCodes, setDetectedCodes] = useState<string[]>([]);
     const hasScannedRef = useRef(false);
-    const isScannerRunningRef = useRef(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const scannerContainerRef = useRef<HTMLDivElement>(null);
 
-    // Safely stop scanner
-    const stopScanner = useCallback(async () => {
-        if (scannerRef.current && isScannerRunningRef.current) {
-            isScannerRunningRef.current = false;
-            try {
-                await scannerRef.current.stop();
-            } catch (e) {
-                console.log('Stop error (ignored):', e);
-            }
-            try {
-                scannerRef.current.clear();
-            } catch (e) {
-                console.log('Clear error (ignored):', e);
-            }
-            scannerRef.current = null;
-        }
-    }, []);
-
-    // Handle successful scan
-    const handleScanSuccess = useCallback(async (decodedText: string, formatName: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleDetected = useCallback((result: any) => {
         if (hasScannedRef.current) return;
-        hasScannedRef.current = true;
 
-        console.log('✅ Barcode detected:', decodedText, 'Format:', formatName);
-        setStatusMessage(`✓ Scanned: ${decodedText}`);
+        const code = result?.codeResult?.code;
+        if (!code || typeof code !== 'string') return;
 
-        // Vibrate if available
-        if (navigator.vibrate) {
-            navigator.vibrate(100);
+        // Add to detected codes for validation (need same code detected multiple times)
+        setDetectedCodes(prev => {
+            const newCodes = [...prev, code].slice(-5); // Keep last 5
+
+            // If we have 3 consecutive identical codes, it's a valid scan
+            if (newCodes.length >= 3) {
+                const lastThree = newCodes.slice(-3);
+                if (lastThree.every(c => c === code)) {
+                    hasScannedRef.current = true;
+
+                    console.log('✅ Barcode confirmed:', code, 'Format:', result.codeResult.format);
+                    setStatusMessage(`✓ Scanned: ${code}`);
+
+                    // Vibrate if available
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+
+                    // Stop scanner and callback
+                    Quagga.stop();
+                    onScan(code);
+                }
+            }
+            return newCodes;
+        });
+    }, [onScan]);
+
+    const handleClose = useCallback(() => {
+        try {
+            Quagga.stop();
+        } catch (e) {
+            console.log('Quagga stop error:', e);
         }
-
-        await stopScanner();
-        onScan(decodedText);
-    }, [onScan, stopScanner]);
-
-    // Handle close button
-    const handleClose = useCallback(async () => {
-        await stopScanner();
         onClose();
-    }, [onClose, stopScanner]);
+    }, [onClose]);
 
     useEffect(() => {
         let mounted = true;
-        let scanAttempts = 0;
 
-        const startScanner = async () => {
+        const initScanner = async () => {
+            if (!scannerContainerRef.current) return;
+
             try {
-                setStatusMessage('Requesting camera permission...');
+                setStatusMessage('Requesting camera access...');
 
-                // Request camera permission explicitly first
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
-                });
-                // Stop the stream immediately, we just needed permission
-                stream.getTracks().forEach(track => track.stop());
-
-                if (!mounted) return;
-                setStatusMessage('Starting scanner...');
-
-                // Supported barcode formats
-                const formatsToSupport = [
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.QR_CODE,
-                ];
-
-                const scanner = new Html5Qrcode('barcode-reader', {
-                    verbose: true, // Enable for debugging
-                    formatsToSupport: formatsToSupport,
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true // Use native API if available
-                    }
-                });
-                scannerRef.current = scanner;
-
-                // Use full container width for scanning (no qrbox restriction)
-                const config = {
-                    fps: 10,
-                    // Remove qrbox to scan entire frame - this often helps with detection
-                    // qrbox: undefined means scan the entire video frame
-                    aspectRatio: 1.777778, // 16:9 ratio
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true
-                    }
-                };
-
-                await scanner.start(
-                    { facingMode: 'environment' },
-                    config,
-                    (decodedText, decodedResult) => {
-                        if (mounted && !hasScannedRef.current) {
-                            const formatName = decodedResult.result?.format?.formatName || 'Unknown';
-                            handleScanSuccess(decodedText, formatName);
+                await new Promise<void>((resolve, reject) => {
+                    Quagga.init({
+                        inputStream: {
+                            name: "Live",
+                            type: "LiveStream",
+                            target: scannerContainerRef.current!,
+                            constraints: {
+                                facingMode: "environment",
+                                width: { min: 640, ideal: 1280, max: 1920 },
+                                height: { min: 480, ideal: 720, max: 1080 },
+                            },
+                        },
+                        locator: {
+                            patchSize: "medium",
+                            halfSample: true,
+                        },
+                        numOfWorkers: navigator.hardwareConcurrency || 4,
+                        frequency: 10,
+                        decoder: {
+                            readers: [
+                                "ean_reader",
+                                "ean_8_reader",
+                                "upc_reader",
+                                "upc_e_reader",
+                                "code_128_reader",
+                                "code_39_reader",
+                            ],
+                        },
+                        locate: true,
+                    }, (err) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve();
                         }
-                    },
-                    () => {
-                        // This fires constantly when no barcode is in frame
-                        scanAttempts++;
-                        if (mounted && scanAttempts % 30 === 0) {
-                            // Update status every ~3 seconds
-                            setStatusMessage('Scanning... Hold barcode steady in frame');
-                        }
-                    }
-                );
+                    });
+                });
 
                 if (mounted) {
-                    isScannerRunningRef.current = true;
+                    Quagga.start();
+                    Quagga.onDetected(handleDetected);
                     setIsScanning(true);
                     setStatusMessage('📷 Point at barcode');
                 }
             } catch (err) {
-                console.error('Scanner error:', err);
+                console.error('Quagga init error:', err);
                 if (mounted) {
                     if (err instanceof Error) {
-                        if (err.name === 'NotAllowedError') {
-                            setError('Camera access denied. Please allow camera in browser settings and reload.');
-                        } else if (err.name === 'NotFoundError') {
+                        if (err.message.includes('Permission denied') || err.message.includes('NotAllowed')) {
+                            setError('Camera access denied. Please allow camera permission.');
+                        } else if (err.message.includes('NotFound')) {
                             setError('No camera found on this device.');
-                        } else if (err.name === 'NotReadableError') {
-                            setError('Camera is busy. Close other apps using the camera.');
                         } else {
-                            setError(`Error: ${err.message}`);
+                            setError(`Camera error: ${err.message}`);
                         }
                     } else {
-                        setError('Failed to start camera.');
+                        setError('Failed to start camera. Please try again.');
                     }
                 }
             }
         };
 
-        const timeout = setTimeout(startScanner, 300);
+        const timeout = setTimeout(initScanner, 100);
 
         return () => {
             mounted = false;
             clearTimeout(timeout);
-            if (scannerRef.current && isScannerRunningRef.current) {
-                isScannerRunningRef.current = false;
-                scannerRef.current.stop().catch(() => { });
+            try {
+                Quagga.offDetected(handleDetected);
+                Quagga.stop();
+            } catch {
+                // Ignore cleanup errors
             }
         };
-    }, [handleScanSuccess]);
+    }, [handleDetected]);
 
     return (
         <div className="fixed inset-0 z-[60] bg-black flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 text-white bg-black/80">
+            <div className="flex items-center justify-between p-4 text-white bg-black/90 z-10">
                 <h2 className="text-lg font-bold">📷 Scan Barcode</h2>
                 <button
                     onClick={handleClose}
@@ -178,36 +159,44 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                 </button>
             </div>
 
-            {/* Scanner Area - Full width */}
-            <div className="flex-1 relative" ref={containerRef}>
+            {/* Scanner Area */}
+            <div className="flex-1 relative overflow-hidden">
                 <div
-                    id="barcode-reader"
-                    className="w-full h-full"
-                    style={{ minHeight: '400px' }}
+                    ref={scannerContainerRef}
+                    className="absolute inset-0"
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                    }}
                 />
 
-                {/* Scanning overlay with guides */}
+                {/* Scanning overlay */}
                 {isScanning && (
-                    <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute inset-0 pointer-events-none z-10">
                         {/* Center guide box */}
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-72 h-40 relative">
+                            <div className="w-80 h-44 relative border-2 border-white/30 rounded-lg">
                                 {/* Corner markers */}
-                                <div className="absolute top-0 left-0 w-12 h-12 border-l-4 border-t-4 border-green-400" />
-                                <div className="absolute top-0 right-0 w-12 h-12 border-r-4 border-t-4 border-green-400" />
-                                <div className="absolute bottom-0 left-0 w-12 h-12 border-l-4 border-b-4 border-green-400" />
-                                <div className="absolute bottom-0 right-0 w-12 h-12 border-r-4 border-b-4 border-green-400" />
+                                <div className="absolute -top-1 -left-1 w-8 h-8 border-l-4 border-t-4 border-green-400 rounded-tl" />
+                                <div className="absolute -top-1 -right-1 w-8 h-8 border-r-4 border-t-4 border-green-400 rounded-tr" />
+                                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-l-4 border-b-4 border-green-400 rounded-bl" />
+                                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-r-4 border-b-4 border-green-400 rounded-br" />
 
                                 {/* Animated scan line */}
-                                <div className="absolute left-2 right-2 h-0.5 bg-green-400 shadow-[0_0_10px_2px_rgba(74,222,128,0.8)] animate-scan-line" />
+                                <div className="absolute left-2 right-2 h-1 bg-green-400 shadow-[0_0_15px_3px_rgba(74,222,128,0.8)] animate-scan-line rounded-full" />
                             </div>
                         </div>
+
+                        {/* Dark overlay around scan area */}
+                        <div className="absolute inset-0 bg-black/40" style={{
+                            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, calc(50% - 160px) calc(50% - 88px), calc(50% - 160px) calc(50% + 88px), calc(50% + 160px) calc(50% + 88px), calc(50% + 160px) calc(50% - 88px), calc(50% - 160px) calc(50% - 88px))'
+                        }} />
                     </div>
                 )}
 
                 {/* Loading state */}
                 {!isScanning && !error && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black z-20">
                         <div className="text-white text-center">
                             <div className="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4" />
                             <p className="text-lg">{statusMessage}</p>
@@ -217,7 +206,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
 
                 {/* Error state */}
                 {error && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black p-6">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black p-6 z-20">
                         <div className="text-center text-white max-w-sm">
                             <div className="text-6xl mb-6">📷</div>
                             <p className="text-red-400 text-lg mb-6">{error}</p>
@@ -233,11 +222,16 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
             </div>
 
             {/* Status bar */}
-            <div className="p-4 bg-black/80 text-center">
-                <p className="text-white font-medium">{statusMessage}</p>
+            <div className="p-4 bg-black/90 text-center z-10">
+                <p className="text-white font-medium text-lg">{statusMessage}</p>
                 <p className="text-white/60 text-sm mt-1">
-                    Center barcode in the green frame
+                    Hold barcode inside the frame
                 </p>
+                {detectedCodes.length > 0 && (
+                    <p className="text-green-400 text-xs mt-1">
+                        Detecting: {detectedCodes[detectedCodes.length - 1]}
+                    </p>
+                )}
             </div>
         </div>
     );
