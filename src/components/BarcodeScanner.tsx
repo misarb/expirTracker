@@ -116,7 +116,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
                             handleScanSuccess(decodedText, formatName);
                         }
                     },
-                    (errorMessage) => {
+                    (_errorMessage) => {
                         // This fires constantly when no barcode is in frame
                         scanAttempts++;
                         if (mounted && scanAttempts % 30 === 0) {
