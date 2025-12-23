@@ -8,10 +8,14 @@ import { useSettingsStore } from '../store/settingsStore';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors'; // Assuming these exist
 import ProductCard from '../components/ProductCard';
 import { PlusIcon } from '../components/Icons'; // Assuming these exist
+import { Svg, Path } from 'react-native-svg';
 
-// Custom Back Icon
-const BackIcon = ({ color }: { color: string }) => (
-    <Text style={{ fontSize: 20, fontWeight: 'bold', color: color }}>‹</Text>
+// Enhanced Back Icon with proper arrow
+const BackArrowIcon = ({ color = "#fff", size = 20 }: { color?: string, size?: number }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <Path d="M19 12H5" />
+        <Path d="M12 19l-7-7 7-7" />
+    </Svg>
 );
 
 const SearchIcon = () => (
@@ -29,7 +33,7 @@ export default function SpaceDetailScreen() {
     const styles = getStyles(isDark ? 'dark' : 'light');
     const theme = isDark ? 'dark' : 'light';
 
-    const { locations, products, categories, deleteProduct } = useProductStore();
+    const { locations, products, deleteProduct } = useProductStore();
     const { setEditingProduct, setDefaultLocationId, setAddModalOpen } = useUIStore();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -85,9 +89,8 @@ export default function SpaceDetailScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                    <Text style={{ fontSize: 24, paddingBottom: 4, color: styles.backText.color }}>‹</Text>
-                    <Text style={styles.backText}>Back</Text>
+                <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.7}>
+                    <BackArrowIcon color={colors.foreground[theme]} size={18} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
             </View>
@@ -122,7 +125,6 @@ export default function SpaceDetailScreen() {
                             <ProductCard
                                 key={p.id}
                                 product={p}
-                                category={categories.find(c => c.id === p.categoryId)}
                                 onEdit={() => handleEdit(p)}
                                 onDelete={() => handleDelete(p.id)}
                             />
@@ -130,20 +132,6 @@ export default function SpaceDetailScreen() {
                     </View>
                 )}
             </ScrollView>
-
-            {/* FAB for Adding Product to this Space */}
-            {!isAllProducts && (
-                <TouchableOpacity
-                    style={styles.fab}
-                    onPress={() => {
-                        setDefaultLocationId(spaceId || null);
-                        setEditingProduct(null);
-                        setAddModalOpen(true);
-                    }}
-                >
-                    <PlusIcon size={32} color="#fff" />
-                </TouchableOpacity>
-            )}
 
         </SafeAreaView>
     );
@@ -153,12 +141,17 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background[theme] },
     header: { flexDirection: 'row', alignItems: 'center', padding: 16 },
     backBtn: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: colors.card[theme], paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12,
-        borderWidth: 1, borderColor: colors.border[theme]
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 40,
+        height: 40,
+        backgroundColor: colors.card[theme],
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border[theme],
     },
-    backIcon: { fontSize: 24, marginRight: 4, color: colors.foreground[theme] },
-    backText: { fontSize: 16, fontWeight: '600', color: colors.foreground[theme] },
+    backIcon: { fontSize: 24, color: colors.foreground[theme] },
+    backText: { fontSize: 15, fontWeight: '600', color: colors.primary[theme] },
 
     title: { fontSize: 24, fontWeight: 'bold', color: colors.foreground[theme] },
     subtitle: { fontSize: 14, color: colors.muted[theme], marginLeft: 4 },

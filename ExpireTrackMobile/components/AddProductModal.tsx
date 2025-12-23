@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, ScrollView, Switch, KeyboardAvoidingView, Platform, Alert, Image, useColorScheme, ActionSheetIOS } from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, ScrollView, Switch, KeyboardAvoidingView, Platform, Alert, Image, useColorScheme, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Product, Category, Location } from '../types';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors';
 import { ScanIcon } from './Icons';
@@ -25,14 +26,14 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
     const systemTheme = useColorScheme();
     const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
     const theme = isDark ? 'dark' : 'light';
-    const styles = getStyles(theme);
+    const insets = useSafeAreaInsets();
+    const styles = getStyles(theme, insets.bottom);
 
-    const { categories, locations, addProduct, updateProduct } = useProductStore();
+    const { locations, addProduct, updateProduct } = useProductStore();
     const { defaultLocationId } = useUIStore();
 
     // Form State
     const [name, setName] = useState('');
-    const [categoryId, setCategoryId] = useState('');
     const [locationId, setLocationId] = useState('');
     const [expirationDate, setExpirationDate] = useState(new Date().toISOString().split('T')[0]);
     const [purchaseDate, setPurchaseDate] = useState('');
@@ -87,7 +88,6 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
         if (visible) {
             if (editingProduct) {
                 setName(editingProduct.name);
-                setCategoryId(editingProduct.categoryId);
                 setLocationId(editingProduct.locationId);
                 setExpirationDate(editingProduct.expirationDate);
                 setPurchaseDate(editingProduct.purchaseDate || '');
@@ -104,7 +104,6 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
             } else {
                 // New Product defaults
                 setName('');
-                setCategoryId(categories[0]?.id || '');
                 setLocationId(defaultLocationId || locations[0]?.id || '');
                 setExpirationDate(new Date().toISOString().split('T')[0]);
                 setPurchaseDate('');
@@ -120,7 +119,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                 setNotifyTiming('');
             }
         }
-    }, [visible, editingProduct, categories, locations]);
+    }, [visible, editingProduct, locations]);
 
     const { t } = useI18n();
 
@@ -214,7 +213,6 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
 
         const data = {
             name,
-            categoryId,
             locationId,
             expirationDate: effectiveExpDate,
             purchaseDate: purchaseDate || undefined,
@@ -288,26 +286,10 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                                 ) : null}
                             </View>
 
-                            {/* Category & Location */}
-                            <View style={styles.row}>
-                                <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
-                                    <Text style={styles.label}>{t('category')}</Text>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                                        {categories.map(cat => (
-                                            <TouchableOpacity
-                                                key={cat.id}
-                                                style={[styles.chip, categoryId === cat.id && styles.chipActive]}
-                                                onPress={() => setCategoryId(cat.id)}
-                                            >
-                                                <Text style={{ fontSize: 12 }}>{cat.icon} {cat.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </View>
-                            </View>
+                            {/* Space */}
 
                             <View style={styles.field}>
-                                <Text style={styles.label}>{t('location')}</Text>
+                                <Text style={styles.label}>Space</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
                                     {locations.map(loc => (
                                         <TouchableOpacity
@@ -465,7 +447,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
     );
 }
 
-const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
+const getStyles = (theme: 'light' | 'dark', bottomInset: number = 0) => StyleSheet.create({
     keyboardView: { flex: 1 },
     overlay: {
         flex: 1,
@@ -584,7 +566,8 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         flexDirection: 'row',
         gap: 12,
         marginTop: spacing.md,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+        paddingBottom: Math.max(bottomInset, 24), // Ensure minimum padding + safe area
+        backgroundColor: colors.card[theme],
     },
     cancelBtn: {
         flex: 1,

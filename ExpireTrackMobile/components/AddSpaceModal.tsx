@@ -82,12 +82,38 @@ export default function AddSpaceModal({ visible, onClose, defaultParentId }: Add
                                 onChangeText={setName}
                             />
 
-                            {/* Parent Selector (Optional logic, for now simple display if passed, or dropdown later) 
-                            Screenshot shows a dropdown "Create inside (optional)".
-                            For simplicity, if defaultParentId is passed, we lock it or show it. 
-                            Implementing full dropdown might be overkill but let's do a simple toggle if needed.
-                            For now, assuming context-based add.
-                        */}
+                            {/* Parent Selector */}
+                            <Text style={styles.label}>Create inside (optional)</Text>
+                            <View style={styles.pickerContainer}>
+                                <TouchableOpacity
+                                    style={styles.pickerButton}
+                                    onPress={() => {
+                                        Alert.alert(
+                                            'Select Parent Space',
+                                            'Choose where to create this space',
+                                            [
+                                                {
+                                                    text: '📂 Top Level (no parent)',
+                                                    onPress: () => setParentId(null)
+                                                },
+                                                ...locations.map(loc => ({
+                                                    text: `${loc.icon} ${loc.name}`,
+                                                    onPress: () => setParentId(loc.id)
+                                                })),
+                                                { text: 'Cancel', style: 'cancel' }
+                                            ]
+                                        );
+                                    }}
+                                >
+                                    <Text style={styles.pickerText}>
+                                        {parentId
+                                            ? `${parentSpace?.icon} ${parentSpace?.name}`
+                                            : '📂 Top Level (no parent)'}
+                                    </Text>
+                                    <Text style={styles.pickerArrow}>▼</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={styles.helperText}>Create as a sub-space inside another space</Text>
 
                             {/* Icon Grid */}
                             <Text style={styles.label}>Icon</Text>
@@ -149,6 +175,33 @@ const styles = StyleSheet.create({
     label: { fontSize: 14, fontWeight: '600', color: '#171717', marginBottom: 8, marginTop: 12 },
     input: {
         borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 14, fontSize: 16, color: '#171717', backgroundColor: '#f9fafb'
+    },
+
+    pickerContainer: { marginBottom: 4 },
+    pickerButton: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 12,
+        padding: 14,
+        backgroundColor: '#f9fafb',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+    },
+    pickerText: {
+        fontSize: 16,
+        color: '#171717',
+        flex: 1
+    },
+    pickerArrow: {
+        fontSize: 12,
+        color: '#9ca3af'
+    },
+    helperText: {
+        fontSize: 12,
+        color: '#9ca3af',
+        marginTop: 4,
+        marginBottom: 8
     },
 
     iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

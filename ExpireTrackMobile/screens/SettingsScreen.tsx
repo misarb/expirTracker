@@ -5,11 +5,13 @@ import { useSettingsStore, Theme, Language } from '../store/settingsStore';
 import { useProductStore } from '../store/productStore';
 import { colors, spacing } from '../theme/colors';
 import { useI18n } from '../lib/i18n';
-import * as FileSystem from 'expo-file-system';
+// Use legacy API for expo-file-system v19+ which has new class-based API
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { Camera } from 'expo-camera';
 import * as Notifications from 'expo-notifications';
+import * as Clipboard from 'expo-clipboard';
 import { Svg, Path } from 'react-native-svg';
 import { rescheduleAllNotifications, cancelAllNotifications, registerForPushNotificationsAsync, sendTestNotification } from '../lib/notifications';
 
@@ -127,33 +129,135 @@ export default function SettingsScreen() {
             };
 
             const json = JSON.stringify(data, null, 2);
-            // @ts-ignore
-            const dir = FileSystem.cacheDirectory;
-            if (!dir) throw new Error("Cache directory not available");
 
-            const fileUri = dir + 'ExpireTrack_Backup.json';
+            // Access FileSystem directories
+            console.log("FileSystem module:", FileSystem);
+            console.log("documentDirectory:", FileSystem.documentDirectory);
+            console.log("cacheDirectory:", FileSystem.cacheDirectory);
 
-            await FileSystem.writeAsStringAsync(fileUri, json, { encoding: 'utf8' });
+            const dir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+
+            if (!dir) {
+                // This means we're likely on web or a non-native environment
+                Alert.alert(
+                    "Platform Not Supported",
+                    "File export requires running on a physical device or emulator with Expo Go.\n\nYou appear to be running on web or an unsupported platform.\n\nWould you like to copy the data to clipboard instead?",
+                    [
+                        { text: "Cancel", style: 'cancel' },
+                        {
+                            text: "Copy to Clipboard",
+                            onPress: async () => {
+                                await Clipboard.setStringAsync(json);
+                                Alert.alert("✅ Copied!", "Data copied to clipboard.");
+                            }
+                        }
+                    ]
+                );
+                setIsLoading(false);
+                return;
+            }
+
+            const fileName = `ExpireTrack_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            const fileUri = dir + fileName;
+
+            console.log("Writing to:", fileUri);
+
+            await FileSystem.writeAsStringAsync(fileUri, json, {
+                encoding: FileSystem.EncodingType?.UTF8 || 'utf8'
+            });
+
+            console.log("File written successfully");
 
             const canShare = await Sharing.isAvailableAsync();
+            console.log("Sharing available:", canShare);
+
             if (canShare) {
                 await Sharing.shareAsync(fileUri, {
                     mimeType: 'application/json',
-                    dialogTitle: 'Export Data',
+                    dialogTitle: 'Export ExpireTrack Backup',
                     UTI: 'public.json'
                 });
             } else {
-                Alert.alert("Error", "Sharing is not supported on this device.");
+                Alert.alert(
+                    "File Saved",
+                    "Your backup has been saved to:\n" + fileUri + "\n\nSharing is not available on this device.",
+                    [{ text: "OK" }]
+                );
             }
         } catch (error: any) {
             console.error("Export Error:", error);
-            Alert.alert("Export Failed", error.message || "An unknown error occurred.");
+            Alert.alert(
+                "Export Failed",
+                error.message + "\n\nPlease try running on a physical device or emulator.",
+                [
+                    { text: "OK" },
+                    {
+                        text: "Copy Instead",
+                        onPress: async () => {
+                            try {
+                                const data = {
+                                    products: productStore.products,
+                                    categories: productStore.categories,
+                                    locations: productStore.locations,
+                                    exportedAt: new Date().toISOString(),
+                                };
+                                await Clipboard.setStringAsync(JSON.stringify(data));
+                                Alert.alert("✅ Copied!", "Data copied to clipboard as fallback.");
+                            } catch (e) {
+                                Alert.alert("Error", "Failed to copy to clipboard.");
+                            }
+                        }
+                    }
+                ]
+            );
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleImport = async () => {
+    const processImportData = (data: any) => {
+        if (!data.products || !Array.isArray(data.products)) {
+            throw new Error("Invalid backup format. Missing products data.");
+        }
+
+        Alert.alert(
+            t('importData'),
+            "This will replace your current inventory with the backup data. This action cannot be undone.\n\nProducts found: " + data.products.length,
+            [
+                { text: t('cancel'), style: 'cancel', onPress: () => setIsLoading(false) },
+                {
+                    text: "Import",
+                    style: 'destructive',
+                    onPress: () => {
+                        try {
+                            useProductStore.setState({
+                                products: data.products,
+                                categories: data.categories || productStore.categories,
+                                locations: data.locations || productStore.locations
+                            });
+
+                            if (data.settings) {
+                                setTheme(data.settings.theme || 'system');
+                                setLanguage(data.settings.language || 'en');
+                                if (typeof data.settings.notificationsEnabled === 'boolean') {
+                                    setNotificationsEnabled(data.settings.notificationsEnabled);
+                                }
+                            }
+
+                            productStore.refreshStatuses();
+                            Alert.alert("✅ Success", t('importSuccess'));
+                        } catch (stateError: any) {
+                            Alert.alert("Import Failed", "Failed to update app state: " + stateError.message);
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleImportFromFile = async () => {
         setIsLoading(true);
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -169,6 +273,7 @@ export default function SettingsScreen() {
             const file = result.assets ? result.assets[0] : null;
             if (!file || !file.uri) throw new Error("No file selected or invalid file URI.");
 
+            // @ts-ignore
             const content = await FileSystem.readAsStringAsync(file.uri);
             let data;
             try {
@@ -177,51 +282,49 @@ export default function SettingsScreen() {
                 throw new Error("Invalid JSON file. Please select a valid backup file.");
             }
 
-            if (!data.products || !Array.isArray(data.products)) {
-                throw new Error("Invalid backup format. Missing products data.");
-            }
-
-            Alert.alert(
-                t('importData'),
-                "This will replace your current inventory with the backup data. This action cannot be undone.\n\nProducts found: " + data.products.length,
-                [
-                    { text: t('cancel'), style: 'cancel', onPress: () => setIsLoading(false) },
-                    {
-                        text: "Import",
-                        style: 'destructive',
-                        onPress: () => {
-                            try {
-                                useProductStore.setState({
-                                    products: data.products,
-                                    categories: data.categories || productStore.categories,
-                                    locations: data.locations || productStore.locations
-                                });
-
-                                if (data.settings) {
-                                    setTheme(data.settings.theme || 'system');
-                                    setLanguage(data.settings.language || 'en');
-                                    if (typeof data.settings.notificationsEnabled === 'boolean') {
-                                        setNotificationsEnabled(data.settings.notificationsEnabled);
-                                    }
-                                }
-
-                                productStore.refreshStatuses();
-                                Alert.alert("Success", t('importSuccess'));
-                            } catch (stateError: any) {
-                                Alert.alert("Import Failed", "Failed to update app state: " + stateError.message);
-                            } finally {
-                                setIsLoading(false);
-                            }
-                        }
-                    }
-                ]
-            );
+            processImportData(data);
 
         } catch (error: any) {
             console.error("Import Error:", error);
             Alert.alert("Import Failed", error.message || "Failed to read file.");
             setIsLoading(false);
         }
+    };
+
+    const handleImportFromClipboard = async () => {
+        setIsLoading(true);
+        try {
+            const clipboardContent = await Clipboard.getStringAsync();
+            if (!clipboardContent) {
+                throw new Error("Clipboard is empty. Copy your backup data first.");
+            }
+
+            let data;
+            try {
+                data = JSON.parse(clipboardContent);
+            } catch (jsonError) {
+                throw new Error("Clipboard doesn't contain valid JSON data. Make sure you copied the backup correctly.");
+            }
+
+            processImportData(data);
+
+        } catch (error: any) {
+            console.error("Import from Clipboard Error:", error);
+            Alert.alert("Import Failed", error.message);
+            setIsLoading(false);
+        }
+    };
+
+    const handleImport = () => {
+        Alert.alert(
+            t('importData'),
+            "How would you like to import your data?",
+            [
+                { text: t('cancel'), style: 'cancel' },
+                { text: "📋 From Clipboard", onPress: handleImportFromClipboard },
+                { text: "📁 From File", onPress: handleImportFromFile },
+            ]
+        );
     };
 
     const styles = getStyles(theme === 'dark' ? 'dark' : 'light');
@@ -321,20 +424,57 @@ export default function SettingsScreen() {
                         </View>
                     )}
 
-                    {notificationsEnabled && (
-                        <TouchableOpacity style={[styles.actionRow, { justifyContent: 'center', marginTop: 12 }]} onPress={async () => {
-                            await sendTestNotification();
-                            Alert.alert("Sent", "A test notification has been sent! If you don't receive it, check your system settings.");
-                        }}>
-                            <Text style={{ color: colors.primary[resolvedTheme], fontWeight: '600' }}>Test Notification 🔔</Text>
-                        </TouchableOpacity>
-                    )}
+                    {/* Camera Permission */}
+                    <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 12 }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={styles.label}>{t('cameraPermission')}</Text>
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: cameraStatus === 'granted' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 12,
+                            }}>
+                                <View style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: 4,
+                                    backgroundColor: cameraStatus === 'granted' ? '#10b981' : '#f59e0b',
+                                    marginRight: 6
+                                }} />
+                                <Text style={[styles.statusText, { color: cameraStatus === 'granted' ? '#10b981' : '#f59e0b' }]}>
+                                    {cameraStatus === 'granted' ? 'Granted' : cameraStatus === 'denied' ? 'Denied' : 'Not Set'}
+                                </Text>
+                            </View>
+                        </View>
 
-                    <View style={styles.row}>
-                        <Text style={styles.label}>{t('cameraPermission')}</Text>
-                        <Text style={[styles.statusText, { color: cameraStatus === 'granted' ? '#10b981' : '#f59e0b' }]}>
-                            {cameraStatus || 'Checking...'}
-                        </Text>
+                        {cameraStatus !== 'granted' && (
+                            <TouchableOpacity
+                                style={[styles.actionRow, {
+                                    backgroundColor: colors.primary[resolvedTheme],
+                                    justifyContent: 'center',
+                                    marginTop: 4,
+                                    marginBottom: 0
+                                }]}
+                                onPress={async () => {
+                                    const { status } = await Camera.requestCameraPermissionsAsync();
+                                    setCameraStatus(status);
+                                    if (status === 'denied') {
+                                        Alert.alert(
+                                            "Permission Denied",
+                                            "Camera access was denied. Please enable it in your device settings to use barcode scanning.",
+                                            [
+                                                { text: "Cancel", style: "cancel" },
+                                                { text: "Open Settings", onPress: () => Linking.openSettings() }
+                                            ]
+                                        );
+                                    }
+                                }}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>📷 Request Camera Access</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     <TouchableOpacity style={[styles.actionRow, { marginTop: 10 }]} onPress={() => Linking.openSettings()}>

@@ -44,6 +44,9 @@ const ALL_TIMING_OPTIONS = [0, 1, 2, 3, 7];
 export async function scheduleProductNotification(product: Product, timings: number[]) {
     if (!product.hasExpirationDate) return;
 
+    // Track if we've already sent an immediate notification for this product
+    let immediateNotificationSent = false;
+
     for (const daysBefore of timings) {
 
         // Calculate Trigger Date
@@ -56,6 +59,7 @@ export async function scheduleProductNotification(product: Product, timings: num
         triggerDate.setHours(9, 0, 0, 0); // Schedule for 9:00 AM
 
         let triggerInput: any = triggerDate;
+        let shouldSchedule = true;
 
         // Determine if the product is ACTUALLY expired (past end of expiration day)
         // We set it to the very end of the day, so even if it's 11PM on the expiration day, it's not "expired" yet for notification purposes.
@@ -65,22 +69,31 @@ export async function scheduleProductNotification(product: Product, timings: num
         // If preferred trigger date (9 AM) is in the past
         if (triggerDate.getTime() < Date.now()) {
 
-            // If the product hasn't fully expired yet (until end of day), schedule it for NOW
+            // If the product hasn't fully expired yet (until end of day)
             if (endOfExpirationDay.getTime() > Date.now()) {
-                triggerInput = null; // Immediate trigger
-                console.log(`Preferred time passed for ${product.name} (-${daysBefore}d), rescheduling for immediate delivery`);
+                // Only send ONE immediate notification, skip others that also have passed trigger time
+                if (immediateNotificationSent) {
+                    console.log(`Skipping duplicate immediate notification for ${product.name} (-${daysBefore}d), already sent one.`);
+                    shouldSchedule = false;
+                } else {
+                    triggerInput = null; // Immediate trigger
+                    immediateNotificationSent = true;
+                    console.log(`Preferred time passed for ${product.name} (-${daysBefore}d), sending immediate notification`);
+                }
             } else {
                 console.log(`Skipping notification for ${product.name}, already expired/passed (EndOfDay: ${endOfExpirationDay.toLocaleString()}).`);
-                continue;
+                shouldSchedule = false;
             }
         }
+
+        if (!shouldSchedule) continue;
 
         const identifier = `${product.id}-${daysBefore}`;
 
         await Notifications.scheduleNotificationAsync({
             identifier,
             content: {
-                title: daysBefore === 0 ? "Product Expired!" : `Expiring in ${daysBefore} days!`,
+                title: daysBefore === 0 ? "Product Expiring Today!" : `Expiring in ${daysBefore} day${daysBefore > 1 ? 's' : ''}!`,
                 body: `${product.name} expires on ${expirationDate.toLocaleDateString()}`,
                 data: { productId: product.id },
                 sound: true,
@@ -88,7 +101,7 @@ export async function scheduleProductNotification(product: Product, timings: num
             trigger: triggerInput,
         });
 
-        console.log(`Scheduled notification for ${product.name} (${daysBefore}d before) at ${triggerDate}`);
+        console.log(`Scheduled notification for ${product.name} (${daysBefore}d before) at ${triggerInput === null ? 'NOW' : triggerDate}`);
     }
 }
 

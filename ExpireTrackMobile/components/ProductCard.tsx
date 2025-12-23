@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, useColorScheme, Dimensions } from 'react-native';
-import { Product, Category } from '../types';
+import { Product } from '../types';
 import { colors, borderRadius, spacing, fontSize } from '../theme/colors';
 import StatusBadge from './StatusBadge';
 import { EditIcon, TrashIcon } from './Icons';
 
 interface ProductCardProps {
     product: Product;
-    category?: Category;
     onEdit: () => void;
     onDelete: () => void;
 }
@@ -18,7 +17,7 @@ import { useSettingsStore } from '../store/settingsStore';
 
 // ...
 
-export default function ProductCard({ product, category, onEdit, onDelete }: ProductCardProps) {
+export default function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
     const { theme: themeSetting } = useSettingsStore();
     const systemTheme = useColorScheme();
     const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
@@ -41,12 +40,6 @@ export default function ProductCard({ product, category, onEdit, onDelete }: Pro
             <View style={styles.content}>
                 <View style={styles.header}>
                     <View style={{ flex: 1 }}>
-                        {/* Category Badge */}
-                        <View style={styles.catBadge}>
-                            <Text style={{ fontSize: 12, marginRight: 4 }}>{category?.icon}</Text>
-                            <Text style={styles.catText}>{category?.name || 'Unknown'}</Text>
-                        </View>
-
                         <Text style={styles.name} numberOfLines={1}>{product.name}</Text>
                     </View>
 

@@ -18,7 +18,7 @@ import { useColorScheme } from 'react-native';
 
 const TAB_ITEMS = [
     { label: 'Home', icon: GridIcon, color: '#06b6d4', routeIndex: 0 },
-    { label: 'List', icon: FolderIcon, color: '#a855f7', routeIndex: 1 },
+    { label: 'Spaces', icon: FolderIcon, color: '#a855f7', routeIndex: 1 },
     { label: 'Add', icon: PlusIcon, color: '#6366F1', routeIndex: -1 }, // Special center button
     { label: 'Support', icon: HeartIcon, color: '#f43f5e', routeIndex: 2 },
     { label: 'Settings', icon: SettingsIcon, color: '#94a3b8', routeIndex: 3 },

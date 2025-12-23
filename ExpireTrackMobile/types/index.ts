@@ -21,7 +21,6 @@ export interface Location {
 export interface Product {
     id: string;
     name: string;
-    categoryId: string;
     locationId: string;
     expirationDate: string; // ISO Date String YYYY-MM-DD
     purchaseDate?: string;

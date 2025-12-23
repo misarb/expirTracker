@@ -18,8 +18,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan barcodes and take product photos.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select product images."
-      }
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select product images.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.misarb.ExpireTrackMobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -29,8 +31,10 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.misarb.ExpireTrackMobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,7 +53,13 @@
         }
       ],
       "expo-asset",
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "931819b8-ace8-4ce5-b32e-1c41b3acc732"
+      }
+    }
   }
 }
