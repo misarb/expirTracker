@@ -46,16 +46,18 @@ export default function HomeScreen({ onCreateSpace, onJoinSpace, onOpenProUpgrad
     const isDark = theme === 'system' ? systemTheme === 'dark' : theme === 'dark';
     const { t } = useI18n();
 
-    const { products, getProductsByStatus, deleteProduct, getProductsBySpace, migrateProductsToSpace } = useProductStore();
+    const { products, getProductsByStatus, deleteProduct, getProductsBySpace } = useProductStore();
     const { setAddModalOpen, setEditingProduct, setDefaultLocationId, setAddSpaceModalOpen, setAddSpaceParentId } = useUIStore();
-    const { currentSpaceId, initializeMySpace, getCurrentSpace, hasFamilySpaces, isOwner } = useSpaceStore();
+    const { currentSpaceId, fetchSpaces, getCurrentSpace, hasFamilySpaces, isOwner } = useSpaceStore();
     const { initializeUser, isPro, hasSeenFamilySpaceOnboarding, setHasSeenFamilySpaceOnboarding } = useUserStore();
 
-    // Initialize user and space on mount
+    // Initialize user and spaces on mount
     useEffect(() => {
-        initializeUser();
-        initializeMySpace();
-        migrateProductsToSpace();
+        const init = async () => {
+            await initializeUser();
+            await fetchSpaces();
+        };
+        init();
     }, []);
 
     const currentSpace = getCurrentSpace();
@@ -276,17 +278,19 @@ export default function HomeScreen({ onCreateSpace, onJoinSpace, onOpenProUpgrad
                             <View style={{ marginBottom: 8 }}><PlusIcon size={32} color="#06b6d4" /></View>
                             <Text style={styles.actionLabel}>{t('addProduct')}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionBtn} onPress={() => {
-                            setAddSpaceParentId(null);
-                            setAddSpaceModalOpen(true);
-                        }}>
-                            <View style={{ marginBottom: 8 }}><FolderIcon size={32} color="#fbbf24" /></View>
-                            <Text style={styles.actionLabel}>{t('addSpace')}</Text>
-                        </TouchableOpacity>
+                        {currentSpaceId && (
+                            <TouchableOpacity style={styles.actionBtn} onPress={() => {
+                                setAddSpaceParentId(null);
+                                setAddSpaceModalOpen(true);
+                            }}>
+                                <View style={{ marginBottom: 8 }}><FolderIcon size={32} color="#fbbf24" /></View>
+                                <Text style={styles.actionLabel}>{t('addSpace')}</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {/* Invite Members - shown only in Family Space for owners */}
-                    {!isMySpace && isOwner(currentSpaceId) && (
+                    {currentSpaceId && !isMySpace && isOwner(currentSpaceId) && (
                         <TouchableOpacity
                             style={styles.inviteActionBtn}
                             onPress={() => onInviteMembers?.(currentSpaceId)}
@@ -310,7 +314,7 @@ export default function HomeScreen({ onCreateSpace, onJoinSpace, onOpenProUpgrad
                         </View>
                         <View style={{ gap: 10 }}>
                             {/* Show Expired first */}
-                            {getProductsByStatus('expired', currentSpaceId).map((p) => (
+                            {spaceProducts.filter(p => p.status === 'expired').map((p) => (
                                 <ProductCard
                                     key={p.id}
                                     product={p}
@@ -319,7 +323,7 @@ export default function HomeScreen({ onCreateSpace, onJoinSpace, onOpenProUpgrad
                                 />
                             ))}
                             {/* Then Expiring Soon */}
-                            {getProductsByStatus('expiring-soon', currentSpaceId).map((p) => (
+                            {spaceProducts.filter(p => p.status === 'expiring-soon').map((p) => (
                                 <ProductCard
                                     key={p.id}
                                     product={p}

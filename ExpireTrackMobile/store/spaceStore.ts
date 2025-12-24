@@ -15,50 +15,52 @@ import {
     getDefaultInviteExpiry,
     UserProfile
 } from '../types/spaces';
+import { Location } from '../types';
 import { useUserStore } from './userStore';
+import { supabase, withTimeout } from '../lib/supabase';
 
 // Constants
-const MY_SPACE_ID = 'my-space';
-const MAX_ACTIVITY_ITEMS = 50;
+const MY_SPACE_ID = 'MY_SPACE';
+export { MY_SPACE_ID };
 
 interface SpaceStore {
     // State
     spaces: Space[];
     memberships: Membership[];
-    invites: Invite[];
-    activities: Activity[];
-    notificationPreferences: SpaceNotificationPreference[];
-    currentSpaceId: string;
+    currentSpaceId: string | null;
 
-    // For local demo: mock members in family spaces
-    mockMembers: { [spaceId: string]: UserProfile[] };
+    // Member profiles for each space
+    spaceMembers: { [spaceId: string]: UserProfile[] };
 
-    // Space Management
-    initializeMySpace: () => void;
-    createFamilySpace: (name: string, icon?: string) => Space;
-    deleteSpace: (spaceId: string) => void;
-    updateSpaceName: (spaceId: string, name: string) => void;
+    // Activities for each space
+    spaceActivities: { [spaceId: string]: Activity[] };
+
+    // Notification preferences for each space
+    notificationPreferences: { [spaceId: string]: boolean };
+
+    // Actions
+    fetchSpaces: () => Promise<void>;
+    initializeMySpace: () => void; // Legacy compatibility
+    createFamilySpace: (name: string, icon?: string) => Promise<{ success: boolean; error?: string; space?: Space }>;
+    deleteSpace: (spaceId: string) => Promise<void>;
+    updateSpaceName: (spaceId: string, name: string) => Promise<void>;
     switchSpace: (spaceId: string) => void;
 
-    // Membership
-    joinSpaceWithCode: (code: string) => { success: boolean; error?: string; space?: Space };
-    leaveSpace: (spaceId: string) => void;
-    removeMember: (spaceId: string, userId: string) => void;
-    transferOwnership: (spaceId: string, newOwnerId: string) => void;
+    // Membership & Invites
+    joinSpaceWithCode: (code: string) => Promise<{ success: boolean; error?: string; space?: Space }>;
+    leaveSpace: (spaceId: string) => Promise<void>;
+    removeMember: (spaceId: string, userId: string) => Promise<void>;
 
     // Invites
-    createInvite: (spaceId: string, maxUses?: number) => Invite;
-    revokeInvite: (inviteId: string) => void;
-    regenerateInvite: (spaceId: string) => Invite;
-    getActiveInvite: (spaceId: string) => Invite | null;
+    createInvite: (spaceId: string, maxUses?: number) => Promise<Invite | null>;
+    regenerateInvite: (spaceId: string) => Promise<Invite | null>;
+    revokeInvite: (inviteId: string) => Promise<void>;
+    getActiveInvite: (spaceId: string) => Promise<Invite | null>;
 
     // Activity
-    logActivity: (spaceId: string, type: ActivityType, payload: Activity['payload']) => void;
+    logActivity: (spaceId: string, type: ActivityType, payload: Activity['payload']) => Promise<void>;
+    fetchActivities: (spaceId: string) => Promise<void>;
     getSpaceActivities: (spaceId: string) => Activity[];
-
-    // Notifications
-    setSpaceNotificationEnabled: (spaceId: string, enabled: boolean) => void;
-    isSpaceNotificationEnabled: (spaceId: string) => boolean;
 
     // Getters
     getCurrentSpace: () => Space | null;
@@ -70,6 +72,10 @@ interface SpaceStore {
     getUserRole: (spaceId: string) => MemberRole | null;
     isOwner: (spaceId: string) => boolean;
     hasFamilySpaces: () => boolean;
+
+    // Notification Preferences
+    isSpaceNotificationEnabled: (spaceId: string) => boolean;
+    setSpaceNotificationEnabled: (spaceId: string, enabled: boolean) => Promise<void>;
 }
 
 export const useSpaceStore = create<SpaceStore>()(
@@ -77,588 +83,510 @@ export const useSpaceStore = create<SpaceStore>()(
         (set, get) => ({
             spaces: [],
             memberships: [],
-            invites: [],
-            activities: [],
-            notificationPreferences: [],
-            currentSpaceId: MY_SPACE_ID,
-            mockMembers: {},
+            currentSpaceId: null,
+            spaceMembers: {},
+            spaceActivities: {},
+            notificationPreferences: {},
 
-            // Initialize My Space (called on app start)
-            initializeMySpace: () => {
-                const spaces = get().spaces;
-                const mySpace = spaces.find(s => s.id === MY_SPACE_ID);
-
-                if (!mySpace) {
-                    const userId = useUserStore.getState().getUserId();
-                    const newMySpace: Space = {
-                        id: MY_SPACE_ID,
-                        name: 'My Space',
-                        type: 'MY_SPACE',
-                        icon: '🏠',
-                        createdBy: userId || 'system',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    };
-
-                    set((state) => ({
-                        spaces: [newMySpace, ...state.spaces],
-                        currentSpaceId: MY_SPACE_ID,
-                    }));
-                }
-            },
-
-            // Create a new Family Space
-            createFamilySpace: (name: string, icon: string = '👨‍👩‍👧‍👦') => {
+            fetchSpaces: async () => {
                 const userId = useUserStore.getState().getUserId();
-                const displayName = useUserStore.getState().getDisplayName();
-
-                if (!userId) {
-                    throw new Error('User not initialized');
-                }
-
-                const newSpace: Space = {
-                    id: generateId(),
-                    name,
-                    type: 'FAMILY_SPACE',
-                    icon,
-                    createdBy: userId,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                };
-
-                const membership: Membership = {
-                    id: generateId(),
-                    userId,
-                    spaceId: newSpace.id,
-                    role: 'OWNER',
-                    joinedAt: new Date().toISOString(),
-                    status: 'ACTIVE',
-                };
-
-                // Create initial invite
-                const invite: Invite = {
-                    id: generateId(),
-                    spaceId: newSpace.id,
-                    code: generateInviteCode(),
-                    createdBy: userId,
-                    expiresAt: getDefaultInviteExpiry(),
-                    maxUses: 5,
-                    usedCount: 0,
-                    status: 'ACTIVE',
-                    createdAt: new Date().toISOString(),
-                };
-
-                // Default notification preference (enabled)
-                const notifPref: SpaceNotificationPreference = {
-                    userId,
-                    spaceId: newSpace.id,
-                    enabled: true,
-                };
-
-                // Add current user as mock member
-                const currentUser = useUserStore.getState().currentUser;
-                const mockMember: UserProfile = currentUser || {
-                    id: userId,
-                    displayName,
-                    avatarEmoji: '😀',
-                    createdAt: new Date().toISOString(),
-                };
-
-                set((state) => ({
-                    spaces: [...state.spaces, newSpace],
-                    memberships: [...state.memberships, membership],
-                    invites: [...state.invites, invite],
-                    notificationPreferences: [...state.notificationPreferences, notifPref],
-                    currentSpaceId: newSpace.id, // Switch to new space
-                    mockMembers: {
-                        ...state.mockMembers,
-                        [newSpace.id]: [mockMember],
-                    },
-                }));
-
-                // Log activity
-                get().logActivity(newSpace.id, 'MEMBER_JOINED', {
-                    memberName: displayName,
-                    memberId: userId,
-                });
-
-                return newSpace;
-            },
-
-            // Delete a Family Space (Owner only)
-            deleteSpace: (spaceId: string) => {
-                if (spaceId === MY_SPACE_ID) return; // Can't delete My Space
-
-                const userId = useUserStore.getState().getUserId();
-                const membership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === userId && m.role === 'OWNER'
-                );
-
-                if (!membership) return; // Not an owner
-
-                set((state) => ({
-                    spaces: state.spaces.filter(s => s.id !== spaceId),
-                    memberships: state.memberships.filter(m => m.spaceId !== spaceId),
-                    invites: state.invites.filter(i => i.spaceId !== spaceId),
-                    activities: state.activities.filter(a => a.spaceId !== spaceId),
-                    notificationPreferences: state.notificationPreferences.filter(n => n.spaceId !== spaceId),
-                    currentSpaceId: state.currentSpaceId === spaceId ? MY_SPACE_ID : state.currentSpaceId,
-                    mockMembers: Object.fromEntries(
-                        Object.entries(state.mockMembers).filter(([id]) => id !== spaceId)
-                    ),
-                }));
-            },
-
-            // Update space name
-            updateSpaceName: (spaceId: string, name: string) => {
-                set((state) => ({
-                    spaces: state.spaces.map(s =>
-                        s.id === spaceId
-                            ? { ...s, name, updatedAt: new Date().toISOString() }
-                            : s
-                    ),
-                }));
-            },
-
-            // Switch to a different space
-            switchSpace: (spaceId: string) => {
-                const space = get().spaces.find(s => s.id === spaceId);
-                if (space) {
-                    set({ currentSpaceId: spaceId });
-                }
-            },
-
-            // Join a Family Space with invite code
-            joinSpaceWithCode: (code: string) => {
-                const invite = get().invites.find(
-                    i => i.code.toUpperCase() === code.toUpperCase() && i.status === 'ACTIVE'
-                );
-
-                if (!invite) {
-                    return { success: false, error: 'Invalid invite code' };
-                }
-
-                // Check expiration
-                if (new Date(invite.expiresAt) < new Date()) {
-                    set((state) => ({
-                        invites: state.invites.map(i =>
-                            i.id === invite.id ? { ...i, status: 'EXPIRED' as const } : i
-                        ),
-                    }));
-                    return { success: false, error: 'This invite has expired' };
-                }
-
-                // Check max uses
-                if (invite.usedCount >= invite.maxUses) {
-                    return { success: false, error: 'This invite has reached its maximum uses' };
-                }
-
-                const userId = useUserStore.getState().getUserId();
-                const displayName = useUserStore.getState().getDisplayName();
-
-                if (!userId) {
-                    return { success: false, error: 'User not initialized' };
-                }
-
-                // Check if already a member
-                const existingMembership = get().memberships.find(
-                    m => m.spaceId === invite.spaceId && m.userId === userId && m.status === 'ACTIVE'
-                );
-
-                if (existingMembership) {
-                    const space = get().spaces.find(s => s.id === invite.spaceId);
-                    return { success: true, space, error: 'Already a member' };
-                }
-
-                const space = get().spaces.find(s => s.id === invite.spaceId);
-                if (!space) {
-                    return { success: false, error: 'This Family Space no longer exists' };
-                }
-
-                // Create membership
-                const membership: Membership = {
-                    id: generateId(),
-                    userId,
-                    spaceId: invite.spaceId,
-                    role: 'MEMBER',
-                    joinedAt: new Date().toISOString(),
-                    status: 'ACTIVE',
-                };
-
-                // Default notification preference (enabled)
-                const notifPref: SpaceNotificationPreference = {
-                    userId,
-                    spaceId: invite.spaceId,
-                    enabled: true,
-                };
-
-                // Add current user as mock member
-                const currentUser = useUserStore.getState().currentUser;
-                const mockMember: UserProfile = currentUser || {
-                    id: userId,
-                    displayName,
-                    avatarEmoji: '😀',
-                    createdAt: new Date().toISOString(),
-                };
-
-                set((state) => ({
-                    memberships: [...state.memberships, membership],
-                    notificationPreferences: [...state.notificationPreferences, notifPref],
-                    invites: state.invites.map(i =>
-                        i.id === invite.id ? { ...i, usedCount: i.usedCount + 1 } : i
-                    ),
-                    currentSpaceId: invite.spaceId, // Switch to joined space
-                    mockMembers: {
-                        ...state.mockMembers,
-                        [invite.spaceId]: [...(state.mockMembers[invite.spaceId] || []), mockMember],
-                    },
-                }));
-
-                // Log activity
-                get().logActivity(invite.spaceId, 'MEMBER_JOINED', {
-                    memberName: displayName,
-                    memberId: userId,
-                });
-
-                return { success: true, space };
-            },
-
-            // Leave a Family Space
-            leaveSpace: (spaceId: string) => {
-                if (spaceId === MY_SPACE_ID) return;
-
-                const userId = useUserStore.getState().getUserId();
-                const displayName = useUserStore.getState().getDisplayName();
-
+                console.log('🛰️ [SpaceStore] fetchSpaces starting for:', userId);
                 if (!userId) return;
 
-                const membership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === userId && m.status === 'ACTIVE'
-                );
+                try {
+                    // 1. Fetch spaces via memberships
+                    console.log('🛰️ [SpaceStore] Fetching memberships from "members"...');
+                    const { data, error } = await supabase
+                        .from('members')
+                        .select(`
+                            role,
+                            status,
+                            joined_at,
+                            spaces (*)
+                        `)
+                        .eq('profile_id', userId)
+                        .eq('status', 'ACTIVE');
 
-                if (!membership) return;
-
-                // If owner is leaving, transfer ownership to oldest member
-                if (membership.role === 'OWNER') {
-                    const otherMembers = get().memberships
-                        .filter(m => m.spaceId === spaceId && m.userId !== userId && m.status === 'ACTIVE')
-                        .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
-
-                    if (otherMembers.length > 0) {
-                        // Transfer ownership
-                        const newOwner = otherMembers[0];
-                        set((state) => ({
-                            memberships: state.memberships.map(m =>
-                                m.id === newOwner.id ? { ...m, role: 'OWNER' as MemberRole } : m
-                            ),
-                        }));
-                    } else {
-                        // No other members, delete the space
-                        get().deleteSpace(spaceId);
+                    if (error) {
+                        console.error('❌ [SpaceStore] Error fetching membership data:', error);
                         return;
                     }
+
+                    if (!data || !Array.isArray(data)) {
+                        console.warn('⚠️ [SpaceStore] Membership data is not an array:', data);
+                        return;
+                    }
+
+                    console.log('🛰️ [SpaceStore] Received memberships:', data.length);
+
+                    const spacesList: Space[] = [];
+                    const membershipsList: Membership[] = [];
+
+                    data.forEach((item: any) => {
+                        const s = item.spaces;
+                        if (!s) return;
+
+                        spacesList.push({
+                            id: s.id,
+                            name: s.name,
+                            type: s.type as SpaceType,
+                            icon: s.icon,
+                            createdBy: s.created_by,
+                            createdAt: s.created_at,
+                            updatedAt: s.updated_at
+                        });
+                        membershipsList.push({
+                            id: s.id + userId, // synthetic id
+                            userId,
+                            spaceId: s.id,
+                            role: item.role as MemberRole,
+                            joinedAt: item.joined_at,
+                            status: item.status
+                        });
+                    });
+
+                    console.log('🛰️ [SpaceStore] Processed spaces:', spacesList.length);
+                    set({ spaces: spacesList, memberships: membershipsList });
+
+                    // Set initial space if none or not in list
+                    const currentId = get().currentSpaceId;
+                    const mySpace = spacesList.find(s => s.type === 'MY_SPACE');
+                    if (!currentId || !spacesList.some(s => s.id === currentId)) {
+                        if (mySpace) {
+                            console.log('🛰️ [SpaceStore] Auto-switching to My Space:', mySpace.id);
+                            set({ currentSpaceId: mySpace.id });
+                        }
+                    }
+
+                    // Fetch members for each space
+                    console.log('🛰️ [SpaceStore] Fetching member profiles for each space...');
+                    for (let i = 0; i < spacesList.length; i++) {
+                        const space = spacesList[i];
+                        console.log(`🛰️ [SpaceStore] Fetching members for space: ${space.name} (${space.id})`);
+                        const { data: memberData, error: memberError } = await supabase
+                            .from('members')
+                            .select(`
+                                profiles (id, display_name, avatar_emoji, created_at)
+                            `)
+                            .eq('space_id', space.id)
+                            .eq('status', 'ACTIVE');
+
+                        if (memberError) {
+                            console.warn(`⚠️ [SpaceStore] Profile fetch error for space ${space.id}:`, memberError);
+                            continue;
+                        }
+
+                        if (memberData && Array.isArray(memberData)) {
+                            const profiles = memberData.map((m: any) => ({
+                                id: m.profiles.id,
+                                displayName: m.profiles.display_name,
+                                avatarEmoji: m.profiles.avatar_emoji,
+                                createdAt: m.profiles.created_at
+                            }));
+                            console.log(`✅ [SpaceStore] Found ${profiles.length} members for ${space.name}`);
+                            set(state => ({
+                                spaceMembers: { ...state.spaceMembers, [space.id]: profiles }
+                            }));
+                        }
+                    }
+                    console.log('✨ [SpaceStore] fetchSpaces complete');
+                } catch (err) {
+                    console.error('❌ [SpaceStore] Unexpected error in fetchSpaces:', err);
                 }
-
-                // Log activity before leaving
-                get().logActivity(spaceId, 'MEMBER_LEFT', {
-                    memberName: displayName,
-                    memberId: userId,
-                });
-
-                set((state) => ({
-                    memberships: state.memberships.map(m =>
-                        m.id === membership.id ? { ...m, status: 'LEFT' as const } : m
-                    ),
-                    currentSpaceId: state.currentSpaceId === spaceId ? MY_SPACE_ID : state.currentSpaceId,
-                    mockMembers: {
-                        ...state.mockMembers,
-                        [spaceId]: (state.mockMembers[spaceId] || []).filter(m => m.id !== userId),
-                    },
-                }));
             },
 
-            // Remove a member (Owner only)
-            removeMember: (spaceId: string, targetUserId: string) => {
-                const userId = useUserStore.getState().getUserId();
-
-                if (!userId) return;
-
-                // Check if current user is owner
-                const ownerMembership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === userId && m.role === 'OWNER' && m.status === 'ACTIVE'
-                );
-
-                if (!ownerMembership) return;
-
-                const targetMembership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === targetUserId && m.status === 'ACTIVE'
-                );
-
-                if (!targetMembership) return;
-
-                const targetMember = get().mockMembers[spaceId]?.find(m => m.id === targetUserId);
-
-                set((state) => ({
-                    memberships: state.memberships.map(m =>
-                        m.id === targetMembership.id ? { ...m, status: 'REMOVED' as const } : m
-                    ),
-                    mockMembers: {
-                        ...state.mockMembers,
-                        [spaceId]: (state.mockMembers[spaceId] || []).filter(m => m.id !== targetUserId),
-                    },
-                }));
-
-                // Log activity
-                get().logActivity(spaceId, 'MEMBER_REMOVED', {
-                    memberName: targetMember?.displayName || 'Unknown',
-                    memberId: targetUserId,
-                });
+            initializeMySpace: () => {
+                // Done via Supabase trigger on first login
+                // This is now a legacy no-op to prevent UI crashes
             },
 
-            // Transfer ownership
-            transferOwnership: (spaceId: string, newOwnerId: string) => {
+            createFamilySpace: async (name: string, icon: string = '👨‍👩‍👧‍👦') => {
                 const userId = useUserStore.getState().getUserId();
-
-                if (!userId) return;
-
-                // Check if current user is owner
-                const currentOwnership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === userId && m.role === 'OWNER' && m.status === 'ACTIVE'
-                );
-
-                if (!currentOwnership) return;
-
-                const newOwnerMembership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === newOwnerId && m.status === 'ACTIVE'
-                );
-
-                if (!newOwnerMembership) return;
-
-                set((state) => ({
-                    memberships: state.memberships.map(m => {
-                        if (m.id === currentOwnership.id) {
-                            return { ...m, role: 'MEMBER' as MemberRole };
-                        }
-                        if (m.id === newOwnerMembership.id) {
-                            return { ...m, role: 'OWNER' as MemberRole };
-                        }
-                        return m;
-                    }),
-                }));
-            },
-
-            // Create an invite for a Family Space
-            createInvite: (spaceId: string, maxUses: number = 5) => {
-                const userId = useUserStore.getState().getUserId();
+                console.log('🏗️ [SpaceStore] Attempting to create Family Space:', { name, userId });
 
                 if (!userId) {
-                    throw new Error('User not initialized');
+                    console.error('❌ [SpaceStore] Cannot create space: No userId found in store');
+                    return { success: false, error: 'User session not found. Please log in again.' };
                 }
 
-                const invite: Invite = {
-                    id: generateId(),
-                    spaceId,
-                    code: generateInviteCode(),
-                    createdBy: userId,
-                    expiresAt: getDefaultInviteExpiry(),
-                    maxUses,
-                    usedCount: 0,
-                    status: 'ACTIVE',
-                    createdAt: new Date().toISOString(),
-                };
+                try {
+                    // 1. Create Space
+                    console.log('🛰️ [SpaceStore] Inserting into "spaces" table...');
+                    const { data: space, error: spaceError } = await withTimeout(supabase
+                        .from('spaces')
+                        .insert({
+                            name,
+                            type: 'FAMILY_SPACE',
+                            icon,
+                            created_by: userId
+                        })
+                        .select()
+                        .single());
 
-                set((state) => ({
-                    invites: [...state.invites, invite],
-                }));
+                    if (spaceError || !space) {
+                        console.error('❌ [SpaceStore] Supabase error creating space:', spaceError);
+                        return { success: false, error: spaceError?.message || 'Failed to create space in database' };
+                    }
 
-                return invite;
-            },
+                    console.log('✅ [SpaceStore] Space created:', space.id);
 
-            // Revoke an invite
-            revokeInvite: (inviteId: string) => {
-                set((state) => ({
-                    invites: state.invites.map(i =>
-                        i.id === inviteId ? { ...i, status: 'REVOKED' as const } : i
-                    ),
-                }));
-            },
+                    // 2. Create Membership (Owner)
+                    console.log('🛰️ [SpaceStore] Creating membership in "members" table...');
+                    const { error: memError } = await withTimeout(supabase
+                        .from('members')
+                        .insert({
+                            space_id: space.id,
+                            profile_id: userId,
+                            role: 'OWNER',
+                            status: 'ACTIVE'
+                        }));
 
-            // Regenerate invite (revoke old ones and create new)
-            regenerateInvite: (spaceId: string) => {
-                // Revoke all existing active invites for this space
-                set((state) => ({
-                    invites: state.invites.map(i =>
-                        i.spaceId === spaceId && i.status === 'ACTIVE'
-                            ? { ...i, status: 'REVOKED' as const }
-                            : i
-                    ),
-                }));
+                    if (memError) {
+                        console.error('❌ [SpaceStore] Supabase error creating membership:', memError);
+                        return { success: false, error: 'Space created but membership failed: ' + memError.message };
+                    }
 
-                return get().createInvite(spaceId);
-            },
+                    console.log('✅ [SpaceStore] Membership created for user:', userId);
 
-            // Get active invite for a space
-            getActiveInvite: (spaceId: string) => {
-                const invite = get().invites.find(
-                    i => i.spaceId === spaceId && i.status === 'ACTIVE'
-                );
+                    // 3. Create Default Location
+                    console.log('🛰️ [SpaceStore] Creating default location...');
+                    const { error: locationError } = await withTimeout(supabase
+                        .from('locations')
+                        .insert({
+                            name: 'General',
+                            icon: '📁',
+                            color: '#6B7280',
+                            space_id: space.id,
+                            created_by: userId
+                        }));
 
-                if (invite && new Date(invite.expiresAt) < new Date()) {
-                    // Expired, update status
-                    set((state) => ({
-                        invites: state.invites.map(i =>
-                            i.id === invite.id ? { ...i, status: 'EXPIRED' as const } : i
-                        ),
-                    }));
-                    return null;
+                    if (locationError) {
+                        console.warn('⚠️ [SpaceStore] Failed to create default location:', locationError);
+                        // Don't fail the whole operation if location creation fails
+                    } else {
+                        console.log('✅ [SpaceStore] Default location created');
+                    }
+
+                    // 4. Refresh
+                    console.log('🔄 [SpaceStore] Refreshing spaces...');
+                    await get().fetchSpaces();
+                    set({ currentSpaceId: space.id });
+
+                    return { success: true, space: get().getSpaceById(space.id) || undefined };
+                } catch (err: any) {
+                    console.error('❌ [SpaceStore] Unexpected error or timeout:', err);
+                    return { success: false, error: err.message || 'Request timed out or failed unexpectedly' };
                 }
-
-                return invite || null;
             },
 
-            // Log activity
-            logActivity: (spaceId: string, type: ActivityType, payload: Activity['payload']) => {
+            deleteSpace: async (spaceId: string) => {
+                const { error } = await supabase
+                    .from('spaces')
+                    .delete()
+                    .eq('id', spaceId);
+
+                if (!error) {
+                    await get().fetchSpaces();
+                }
+            },
+
+            updateSpaceName: async (spaceId: string, name: string) => {
+                await supabase
+                    .from('spaces')
+                    .update({ name, updated_at: new Date().toISOString() })
+                    .eq('id', spaceId);
+
+                await get().fetchSpaces();
+            },
+
+            switchSpace: (spaceId: string) => {
+                set({ currentSpaceId: spaceId });
+            },
+
+            joinSpaceWithCode: async (code: string) => {
                 const userId = useUserStore.getState().getUserId();
-                const displayName = useUserStore.getState().getDisplayName();
+                console.log('🔑 [SpaceStore] Attempting to join with code:', code);
 
+                if (!userId) {
+                    console.error('❌ [SpaceStore] User not logged in');
+                    return { success: false, error: 'User not logged in' };
+                }
+
+                try {
+                    // 1. Find invite
+                    console.log('🔍 [SpaceStore] Looking up invite code...');
+                    const { data: invite, error: inviteError } = await supabase
+                        .from('invites')
+                        .select('*')
+                        .eq('code', code.toUpperCase())
+                        .eq('status', 'ACTIVE')
+                        .single();
+
+                    if (inviteError || !invite) {
+                        console.error('❌ [SpaceStore] Invite lookup failed:', inviteError);
+                        return { success: false, error: 'Invalid or expired invite code' };
+                    }
+
+                    console.log('✅ [SpaceStore] Found invite for space:', invite.space_id);
+
+                    // 2. Check expiration
+                    if (new Date(invite.expires_at) < new Date()) {
+                        console.error('❌ [SpaceStore] Invite has expired');
+                        return { success: false, error: 'Invite expired' };
+                    }
+
+                    // 3. Join space by creating membership
+                    console.log('🛰️ [SpaceStore] Creating membership...');
+                    const { error: joinError } = await supabase
+                        .from('members')
+                        .insert({
+                            space_id: invite.space_id,
+                            profile_id: userId,
+                            role: 'MEMBER',
+                            status: 'ACTIVE'
+                        });
+
+                    if (joinError) {
+                        console.error('❌ [SpaceStore] Membership creation error:', joinError);
+                        if (joinError.code === '23505') {
+                            console.log('ℹ️ [SpaceStore] Already a member, refreshing...');
+                            await get().fetchSpaces();
+                            return { success: true, space: get().getSpaceById(invite.space_id) || undefined };
+                        }
+                        return { success: false, error: 'Failed to join space: ' + joinError.message };
+                    }
+
+                    console.log('✅ [SpaceStore] Membership created successfully');
+
+                    // 4. Update invite usage (non-blocking - don't fail if RPC missing)
+                    try {
+                        await supabase
+                            .from('invites')
+                            .update({ used_count: invite.used_count + 1 })
+                            .eq('id', invite.id);
+                    } catch (err) {
+                        console.warn('⚠️ [SpaceStore] Failed to update invite usage:', err);
+                    }
+
+                    // 5. Refresh and switch
+                    console.log('🔄 [SpaceStore] Refreshing spaces...');
+                    await get().fetchSpaces();
+                    set({ currentSpaceId: invite.space_id });
+
+                    console.log('🎉 [SpaceStore] Successfully joined space!');
+                    return { success: true, space: get().getSpaceById(invite.space_id) || undefined };
+                } catch (err: any) {
+                    console.error('❌ [SpaceStore] Unexpected error in joinSpaceWithCode:', err);
+                    return { success: false, error: err.message || 'Something went wrong' };
+                }
+            },
+
+            leaveSpace: async (spaceId: string) => {
+                const userId = useUserStore.getState().getUserId();
                 if (!userId) return;
 
-                const activity: Activity = {
-                    id: generateId(),
-                    spaceId,
-                    actorUserId: userId,
-                    actorName: displayName,
-                    type,
-                    payload,
-                    createdAt: new Date().toISOString(),
-                };
+                await supabase
+                    .from('members')
+                    .update({ status: 'LEFT' })
+                    .eq('space_id', spaceId)
+                    .eq('profile_id', userId);
 
-                set((state) => {
-                    const spaceActivities = state.activities.filter(a => a.spaceId === spaceId);
-                    const otherActivities = state.activities.filter(a => a.spaceId !== spaceId);
-
-                    // Keep only last MAX_ACTIVITY_ITEMS for this space
-                    const newSpaceActivities = [activity, ...spaceActivities].slice(0, MAX_ACTIVITY_ITEMS);
-
-                    return {
-                        activities: [...otherActivities, ...newSpaceActivities],
-                    };
-                });
+                await get().fetchSpaces();
             },
 
-            // Get activities for a space
+            removeMember: async (spaceId: string, targetUserId: string) => {
+                await supabase
+                    .from('members')
+                    .update({ status: 'REMOVED' })
+                    .eq('space_id', spaceId)
+                    .eq('profile_id', targetUserId);
+
+                await get().fetchSpaces();
+            },
+
+            createInvite: async (spaceId: string, maxUses: number = 5) => {
+                const userId = useUserStore.getState().getUserId();
+                if (!userId) return null;
+
+                const { data, error } = await supabase
+                    .from('invites')
+                    .insert({
+                        space_id: spaceId,
+                        code: generateInviteCode(),
+                        created_by: userId,
+                        expires_at: getDefaultInviteExpiry(),
+                        max_uses: maxUses
+                    })
+                    .select()
+                    .single();
+
+                return data ? {
+                    id: data.id,
+                    spaceId: data.space_id,
+                    code: data.code,
+                    createdBy: data.created_by,
+                    expiresAt: data.expires_at,
+                    maxUses: data.max_uses,
+                    usedCount: data.used_count,
+                    status: data.status as any,
+                    createdAt: data.created_at
+                } : null;
+            },
+
+            regenerateInvite: async (spaceId: string) => {
+                const userId = useUserStore.getState().getUserId();
+                if (!userId) return null;
+
+                // 1. Revoke existing invite
+                const existingInvite = await get().getActiveInvite(spaceId);
+                if (existingInvite) {
+                    await get().revokeInvite(existingInvite.id);
+                }
+
+                // 2. Create new invite
+                return await get().createInvite(spaceId);
+            },
+
+            revokeInvite: async (inviteId: string) => {
+                await supabase
+                    .from('invites')
+                    .update({ status: 'REVOKED' })
+                    .eq('id', inviteId);
+            },
+
+            getActiveInvite: async (spaceId: string) => {
+                const { data } = await supabase
+                    .from('invites')
+                    .select('*')
+                    .eq('space_id', spaceId)
+                    .eq('status', 'ACTIVE')
+                    .single();
+
+                return data ? {
+                    id: data.id,
+                    spaceId: data.space_id,
+                    code: data.code,
+                    createdBy: data.created_by,
+                    expiresAt: data.expires_at,
+                    maxUses: data.max_uses,
+                    usedCount: data.used_count,
+                    status: data.status as any,
+                    createdAt: data.created_at
+                } : null;
+            },
+
+            logActivity: async (spaceId: string, type: ActivityType, payload: Activity['payload']) => {
+                const userId = useUserStore.getState().getUserId();
+                if (!userId) return;
+
+                await supabase
+                    .from('activities')
+                    .insert({
+                        space_id: spaceId,
+                        type,
+                        actor_id: userId,
+                        payload
+                    });
+            },
+
+            fetchActivities: async (spaceId: string) => {
+                const { data } = await supabase
+                    .from('activities')
+                    .select(`
+                        id,
+                        type,
+                        payload,
+                        created_at,
+                        profiles (display_name)
+                    `)
+                    .eq('space_id', spaceId)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                const activities = (data || []).map((a: any) => ({
+                    id: a.id,
+                    spaceId,
+                    actorUserId: '', // not needed for display
+                    actorName: a.profiles?.display_name || 'System',
+                    type: a.type as ActivityType,
+                    payload: a.payload,
+                    createdAt: a.created_at
+                }));
+
+                set(state => ({
+                    spaceActivities: { ...state.spaceActivities, [spaceId]: activities }
+                }));
+            },
+
             getSpaceActivities: (spaceId: string) => {
-                return get().activities
-                    .filter(a => a.spaceId === spaceId)
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                return get().spaceActivities[spaceId] || [];
             },
 
-            // Set notification preference for a space
-            setSpaceNotificationEnabled: (spaceId: string, enabled: boolean) => {
-                const userId = useUserStore.getState().getUserId();
-                if (!userId) return;
-
-                const existing = get().notificationPreferences.find(
-                    n => n.spaceId === spaceId && n.userId === userId
-                );
-
-                if (existing) {
-                    set((state) => ({
-                        notificationPreferences: state.notificationPreferences.map(n =>
-                            n.spaceId === spaceId && n.userId === userId
-                                ? { ...n, enabled }
-                                : n
-                        ),
-                    }));
-                } else {
-                    set((state) => ({
-                        notificationPreferences: [
-                            ...state.notificationPreferences,
-                            { userId, spaceId, enabled },
-                        ],
-                    }));
-                }
-            },
-
-            // Check if notifications are enabled for a space
-            isSpaceNotificationEnabled: (spaceId: string) => {
-                const userId = useUserStore.getState().getUserId();
-                if (!userId) return true; // Default to enabled
-
-                const pref = get().notificationPreferences.find(
-                    n => n.spaceId === spaceId && n.userId === userId
-                );
-
-                return pref?.enabled ?? true; // Default to enabled
-            },
-
-            // Get current space
             getCurrentSpace: () => {
                 return get().spaces.find(s => s.id === get().currentSpaceId) || null;
             },
 
-            // Get My Space
             getMySpace: () => {
-                return get().spaces.find(s => s.id === MY_SPACE_ID) || null;
+                return get().spaces.find(s => s.type === 'MY_SPACE') || null;
             },
 
-            // Get all Family Spaces
             getFamilySpaces: () => {
-                const userId = useUserStore.getState().getUserId();
-                if (!userId) return [];
-
-                const activeMemberships = get().memberships.filter(
-                    m => m.userId === userId && m.status === 'ACTIVE'
-                );
-
-                return get().spaces.filter(
-                    s => s.type === 'FAMILY_SPACE' && activeMemberships.some(m => m.spaceId === s.id)
-                );
+                return get().spaces.filter(s => s.type === 'FAMILY_SPACE');
             },
 
-            // Get space by ID
             getSpaceById: (spaceId: string) => {
                 return get().spaces.find(s => s.id === spaceId) || null;
             },
 
-            // Get members of a space (mock data for local demo)
             getSpaceMembers: (spaceId: string) => {
-                return get().mockMembers[spaceId] || [];
+                return get().spaceMembers[spaceId] || [];
             },
 
-            // Get member count
             getMemberCount: (spaceId: string) => {
-                return (get().mockMembers[spaceId] || []).length;
+                return (get().spaceMembers[spaceId] || []).length;
             },
 
-            // Get user's role in a space
             getUserRole: (spaceId: string) => {
-                const userId = useUserStore.getState().getUserId();
-                if (!userId) return null;
-
-                const membership = get().memberships.find(
-                    m => m.spaceId === spaceId && m.userId === userId && m.status === 'ACTIVE'
-                );
-
+                const membership = get().memberships.find(m => m.spaceId === spaceId);
                 return membership?.role || null;
             },
 
-            // Check if current user is owner of a space
             isOwner: (spaceId: string) => {
                 return get().getUserRole(spaceId) === 'OWNER';
             },
 
-            // Check if user has any family spaces
             hasFamilySpaces: () => {
                 return get().getFamilySpaces().length > 0;
+            },
+
+            isSpaceNotificationEnabled: (spaceId: string) => {
+                // Default to true if not set
+                return get().notificationPreferences[spaceId] ?? true;
+            },
+
+            setSpaceNotificationEnabled: async (spaceId: string, enabled: boolean) => {
+                const userId = useUserStore.getState().getUserId();
+                if (!userId) return;
+
+                // Update local state
+                set(state => ({
+                    notificationPreferences: { ...state.notificationPreferences, [spaceId]: enabled }
+                }));
+
+                // Sync to database
+                await supabase
+                    .from('notification_preferences')
+                    .upsert({
+                        profile_id: userId,
+                        space_id: spaceId,
+                        enabled
+                    });
             },
         }),
         {
             name: 'expire-track-spaces',
-            storage: createJSONStorage(() => AsyncStorage)
+            storage: createJSONStorage(() => AsyncStorage),
+            partialize: (state) => ({ currentSpaceId: state.currentSpaceId }) // Only persist current selection
         }
     )
 );
-
-// Export constant for use in other files
-export { MY_SPACE_ID };

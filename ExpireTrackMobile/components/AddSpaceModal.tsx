@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, Dimensions } from 'react-native';
 import { useProductStore } from '../store/productStore';
+import { useSpaceStore } from '../store/spaceStore';
+import { useUserStore } from '../store/userStore';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors';
 import { Svg, Path } from 'react-native-svg';
 
@@ -19,6 +21,8 @@ interface AddSpaceModalProps {
 
 export default function AddSpaceModal({ visible, onClose, defaultParentId }: AddSpaceModalProps) {
     const { addLocation, locations } = useProductStore();
+    const { currentSpaceId } = useSpaceStore();
+    const { getUserId } = useUserStore();
 
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -40,12 +44,22 @@ export default function AddSpaceModal({ visible, onClose, defaultParentId }: Add
             Alert.alert('Required', 'Please enter a space name');
             return;
         }
+        const userId = getUserId();
+        const spaceId = currentSpaceId;
+
+        if (!spaceId) {
+            Alert.alert('Error', 'No space selected. Please select a space first.');
+            return;
+        }
+
         addLocation({
             name,
             description: description || undefined,
             icon,
             color: '#8B5CF6',
-            parentId: parentId || undefined
+            parentId: parentId || undefined,
+            spaceId: spaceId,
+            createdBy: userId
         });
         onClose();
     };

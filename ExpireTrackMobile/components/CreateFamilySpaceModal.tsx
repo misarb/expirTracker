@@ -9,7 +9,8 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    ScrollView
+    ScrollView,
+    ActivityIndicator
 } from 'react-native';
 import { useSpaceStore } from '../store/spaceStore';
 import { colors, spacing } from '../theme/colors';
@@ -33,6 +34,7 @@ export default function CreateFamilySpaceModal({
 }: CreateFamilySpaceModalProps) {
     const [name, setName] = useState('');
     const [selectedIcon, setSelectedIcon] = useState('👨‍👩‍👧‍👦');
+    const [isCreating, setIsCreating] = useState(false);
 
     const { createFamilySpace } = useSpaceStore();
 
@@ -44,19 +46,26 @@ export default function CreateFamilySpaceModal({
         }
     }, [visible]);
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         if (!name.trim()) {
             Alert.alert('Required', 'Please enter a name for your Family Space');
             return;
         }
 
+        setIsCreating(true);
         try {
-            const space = createFamilySpace(name.trim(), selectedIcon);
-            onClose();
-            // Call onSuccess with spaceId so parent can show invite modal
-            onSuccess?.(space.id, space.name);
+            const result = await createFamilySpace(name.trim(), selectedIcon);
+            if (result.success && result.space) {
+                onClose();
+                // Call onSuccess with spaceId so parent can show invite modal
+                onSuccess?.(result.space.id, result.space.name);
+            } else {
+                Alert.alert('Creation Failed', result.error || 'Failed to create Family Space. Please check your connection.');
+            }
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to create Family Space');
+            Alert.alert('Error', error.message || 'An unexpected error occurred');
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -126,12 +135,16 @@ export default function CreateFamilySpaceModal({
                             <TouchableOpacity
                                 style={[
                                     styles.createBtn,
-                                    !name.trim() && styles.createBtnDisabled
+                                    (!name.trim() || isCreating) && styles.createBtnDisabled
                                 ]}
                                 onPress={handleCreate}
-                                disabled={!name.trim()}
+                                disabled={!name.trim() || isCreating}
                             >
-                                <Text style={styles.createText}>Create Space</Text>
+                                {isCreating ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.createText}>Create Space</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>

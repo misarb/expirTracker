@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert, A
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore, Theme, Language } from '../store/settingsStore';
 import { useProductStore } from '../store/productStore';
+import { useUserStore } from '../store/userStore';
+import { useNavigation } from '@react-navigation/native';
 import { colors, spacing } from '../theme/colors';
 import { useI18n } from '../lib/i18n';
 // Use legacy API for expo-file-system v19+ which has new class-based API
@@ -40,6 +42,8 @@ export default function SettingsScreen() {
     } = useSettingsStore();
     const productStore = useProductStore();
     const { t } = useI18n();
+    const { currentUser, isPro, signOut } = useUserStore();
+    const navigation = useNavigation<any>();
 
     // Permission States
     const [cameraStatus, setCameraStatus] = useState<string | null>(null);
@@ -339,6 +343,54 @@ export default function SettingsScreen() {
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
 
+                {/* ACCOUNT SECTION */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Account & Pro</Text>
+                    {currentUser ? (
+                        <View style={styles.accountCard}>
+                            <View style={styles.accountInfo}>
+                                <View style={[styles.avatarCircle, { backgroundColor: colors.primary[resolvedTheme] }]}>
+                                    <Text style={styles.avatarText}>{currentUser.avatarEmoji || '👤'}</Text>
+                                </View>
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={styles.accountName}>{currentUser.displayName}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                        <View style={[styles.badge, isPro ? styles.proBadge : styles.freeBadge]}>
+                                            <Text style={styles.badgeText}>{isPro ? 'PRO' : 'FREE'}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            </View>
+                            <TouchableOpacity style={styles.logoutBtn} onPress={() => {
+                                Alert.alert("Log Out", "Are you sure you want to log out?", [
+                                    { text: "Cancel", style: "cancel" },
+                                    {
+                                        text: "Log Out", style: "destructive", onPress: async () => {
+                                            await signOut();
+                                            navigation.navigate('Auth');
+                                        }
+                                    }
+                                ]);
+                            }}>
+                                <Text style={styles.logoutText}>Log Out</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.loginBanner}
+                            onPress={() => navigation.navigate('Auth')}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.loginTitle}>Unlock Cloud Sync</Text>
+                                <Text style={styles.loginSubtitle}>Sign in to sync across all your devices</Text>
+                            </View>
+                            <View style={styles.loginBtn}>
+                                <Text style={styles.loginBtnText}>Sign In</Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
                 {/* GENERAL SETTINGS */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>General</Text>
@@ -567,5 +619,92 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     },
     donateText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
 
-    version: { textAlign: 'center', color: colors.muted[theme], marginTop: 20, marginBottom: 40 }
+    version: { textAlign: 'center', color: colors.muted[theme], marginTop: 20, marginBottom: 40 },
+
+    // Account Section
+    accountCard: {
+        backgroundColor: colors.card[theme],
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: colors.border[theme],
+    },
+    accountInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    avatarCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarText: {
+        fontSize: 24,
+    },
+    accountName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.foreground[theme],
+    },
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    proBadge: {
+        backgroundColor: '#fbbf24',
+    },
+    freeBadge: {
+        backgroundColor: colors.border[theme],
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    logoutBtn: {
+        borderTopWidth: 1,
+        borderTopColor: colors.border[theme],
+        paddingTop: 12,
+        alignItems: 'center',
+    },
+    logoutText: {
+        color: colors.destructive,
+        fontWeight: '600',
+    },
+    loginBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary[theme],
+        borderRadius: 16,
+        padding: 16,
+        shadowColor: colors.primary[theme],
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    loginTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    loginSubtitle: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 13,
+        marginTop: 2,
+    },
+    loginBtn: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    loginBtnText: {
+        color: colors.primary[theme],
+        fontWeight: 'bold',
+    },
 });

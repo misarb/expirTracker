@@ -13,6 +13,7 @@ import MembersScreen from './screens/MembersScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import SpaceDetailScreen from './screens/SpaceDetailScreen';
 import ProductListScreen from './screens/ProductListScreen';
+import AuthScreen from './screens/AuthScreen';
 import FamilySpaceSettingsScreen from './screens/FamilySpaceSettingsScreen';
 import AddProductModal from './components/AddProductModal';
 import AddSpaceModal from './components/AddSpaceModal';
@@ -25,7 +26,9 @@ import SplashScreen from './components/SplashScreen';
 import { useSettingsStore } from './store/settingsStore';
 import { useUIStore } from './store/uiStore';
 import { useUserStore } from './store/userStore';
-import { useSpaceStore } from './store/spaceStore';
+import { useSpaceStore, MY_SPACE_ID } from './store/spaceStore';
+import { useProductStore } from './store/productStore';
+import { supabase } from './lib/supabase';
 import { colors } from './theme/colors';
 
 const Tab = createBottomTabNavigator();
@@ -132,13 +135,15 @@ function MainTabs({ onCreateSpace, onJoinSpace, onOpenProUpgrade, onInviteMember
   );
 }
 
+const RootStack = createNativeStackNavigator();
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const systemTheme = useColorScheme();
   const { theme: themeSetting } = useSettingsStore();
   const { isAddModalOpen, setAddModalOpen, editingProduct, isAddSpaceModalOpen, setAddSpaceModalOpen, addSpaceParentId } = useUIStore();
   const { initializeUser, isPro, setIsPro } = useUserStore();
-  const { initializeMySpace } = useSpaceStore();
+  const { fetchSpaces } = useSpaceStore();
 
   // Family Space modal states
   const [isCreateFamilySpaceOpen, setIsCreateFamilySpaceOpen] = useState(false);
@@ -159,13 +164,76 @@ export default function App() {
     border: colors.border[theme],
   };
 
-  // Initialize user and space when app loads
+  // Initialize user and spaces when app loads
   useEffect(() => {
-    if (!showSplash) {
-      initializeUser();
-      initializeMySpace();
-    }
+    const init = async () => {
+      if (!showSplash) {
+        await initializeUser();
+        await useSpaceStore.getState().fetchSpaces();
+
+        // Load data for all spaces
+        const allSpaces = useSpaceStore.getState().getFamilySpaces();
+        const spaceIds = [MY_SPACE_ID, ...allSpaces.map(s => s.id)];
+        await useProductStore.getState().fetchAllSpacesData(spaceIds);
+      }
+    };
+    init();
+
+    // Listen for auth state changes (e.g. login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔔 [App] Auth Event:', event);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // Initialize in background to not block UI dismissal
+        (async () => {
+          try {
+            await initializeUser();
+            await useSpaceStore.getState().fetchSpaces();
+
+            // Load data for all spaces
+            const allSpaces = useSpaceStore.getState().getFamilySpaces();
+            const spaceIds = [MY_SPACE_ID, ...allSpaces.map(s => s.id)];
+            await useProductStore.getState().fetchAllSpacesData(spaceIds);
+
+            console.log('✅ [App] Background init complete');
+          } catch (err) {
+            console.error('❌ [App] Background init failed:', err);
+          }
+        })();
+      } else if (event === 'SIGNED_OUT') {
+        console.log('👋 [App] User signed out');
+        await initializeUser();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [showSplash]);
+
+  // Fetch products when space changes
+  const currentSpaceId = useSpaceStore(state => state.currentSpaceId);
+  const fetchData = useProductStore(state => state.fetchData);
+
+  useEffect(() => {
+    if (currentSpaceId) {
+      fetchData(currentSpaceId);
+    }
+  }, [currentSpaceId]);
+
+  // Real-time subscription: Subscribe to current space
+  const { subscribeToSpace, unsubscribeAll } = useProductStore();
+  useEffect(() => {
+    if (currentSpaceId) {
+      console.log('📡 [App] Auto-subscribing to space:', currentSpaceId);
+      subscribeToSpace(currentSpaceId);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🧼 [App] Cleaning up subscriptions on unmount');
+      unsubscribeAll();
+    };
+  }, [currentSpaceId]);
 
   const handleCreateSpace = () => {
     if (!isPro) {
@@ -184,12 +252,15 @@ export default function App() {
   };
 
   const handleProUpgrade = () => {
-    // For now, just show an alert with option to enable Pro for testing
     Alert.alert(
       'Pro Feature',
-      'Family Spaces is a Pro feature. Upgrade to Pro to create and join shared spaces with your family.',
+      'Family Spaces and Cloud Sync are Pro features. Sign in or upgrade to unlock.',
       [
         { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign In / Sign Up',
+          onPress: () => (navigationRef.current as any)?.navigate('Auth')
+        },
         {
           text: 'Enable Pro (Demo)',
           onPress: () => {
@@ -222,22 +293,36 @@ export default function App() {
           },
         }}
       >
-        <MainTabs
-          onCreateSpace={handleCreateSpace}
-          onJoinSpace={handleJoinSpace}
-          onOpenProUpgrade={handleProUpgrade}
-          onInviteMembers={(spaceId) => {
-            setInviteSpaceId(spaceId);
-            setIsInviteModalOpen(true);
-          }}
-          onSpaceSettings={(spaceId) => {
-            // Navigate to FamilySpaceSettingsScreen
-            (navigationRef.current as any)?.navigate('Home', {
-              screen: 'FamilySpaceSettings',
-              params: { spaceId }
-            });
-          }}
-        />
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Main">
+            {() => (
+              <MainTabs
+                onCreateSpace={handleCreateSpace}
+                onJoinSpace={handleJoinSpace}
+                onOpenProUpgrade={handleProUpgrade}
+                onInviteMembers={(spaceId) => {
+                  setInviteSpaceId(spaceId);
+                  setIsInviteModalOpen(true);
+                }}
+                onSpaceSettings={(spaceId) => {
+                  // Navigate to FamilySpaceSettingsScreen
+                  (navigationRef.current as any)?.navigate('Home', {
+                    screen: 'FamilySpaceSettings',
+                    params: { spaceId }
+                  });
+                }}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen
+            name="Auth"
+            component={AuthScreen}
+            options={{
+              presentation: 'modal',
+              animation: 'slide_from_bottom'
+            }}
+          />
+        </RootStack.Navigator>
 
         {/* Global Modals */}
         <AddProductModal

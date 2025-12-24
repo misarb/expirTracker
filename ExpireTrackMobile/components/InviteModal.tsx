@@ -28,16 +28,34 @@ export default function InviteModal({ visible, onClose, spaceId }: InviteModalPr
     const [copied, setCopied] = useState(false);
     const [showQr, setShowQr] = useState(false);
 
-    const { getActiveInvite, regenerateInvite, getSpaceById, getMemberCount } = useSpaceStore();
+    const { getActiveInvite, createInvite, regenerateInvite, getSpaceById, getMemberCount } = useSpaceStore();
     const space = getSpaceById(spaceId);
 
     useEffect(() => {
-        if (visible && spaceId) {
-            const activeInvite = getActiveInvite(spaceId);
-            setInvite(activeInvite);
-            setCopied(false);
-            setShowQr(false); // Reset QR visibility when modal opens
-        }
+        const fetchInvite = async () => {
+            if (visible && spaceId) {
+                setIsLoading(true);
+                try {
+                    let activeInvite = await getActiveInvite(spaceId);
+
+                    // If no active invite exists, create one
+                    if (!activeInvite) {
+                        console.log('📨 [InviteModal] No active invite found, creating new one...');
+                        activeInvite = await createInvite(spaceId);
+                    }
+
+                    setInvite(activeInvite);
+                    setCopied(false);
+                    setShowQr(false);
+                } catch (error) {
+                    console.error('❌ [InviteModal] Error fetching/creating invite:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchInvite();
     }, [visible, spaceId]);
 
     const handleCopyCode = async () => {
@@ -68,13 +86,16 @@ export default function InviteModal({ visible, onClose, spaceId }: InviteModalPr
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Regenerate',
-                    onPress: () => {
+                    onPress: async () => {
                         setIsLoading(true);
-                        setTimeout(() => {
-                            const newInvite = regenerateInvite(spaceId);
+                        try {
+                            const newInvite = await regenerateInvite(spaceId);
                             setInvite(newInvite);
+                        } catch (error) {
+                            console.error('❌ [InviteModal] Regenerate error:', error);
+                        } finally {
                             setIsLoading(false);
-                        }, 500);
+                        }
                     }
                 }
             ]

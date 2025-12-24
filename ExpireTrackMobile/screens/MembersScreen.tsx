@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
     View,
     Text,
@@ -32,6 +32,7 @@ export default function MembersScreen() {
         getFamilySpaces,
         getSpaceMembers,
         getSpaceActivities,
+        fetchActivities,
         currentSpaceId,
         switchSpace,
         getMySpace
@@ -44,7 +45,14 @@ export default function MembersScreen() {
     const mySpaceProducts = getProductsBySpace(MY_SPACE_ID);
     const userId = getUserId();
 
-    // Get activities for all family spaces
+    // Fetch activities for all family spaces on mount
+    useEffect(() => {
+        familySpaces.forEach(space => {
+            fetchActivities(space.id);
+        });
+    }, [familySpaces.length]); // Re-fetch if number of spaces changes
+
+    // Get activities for all family spaces from state
     const allActivities = useMemo(() => {
         const activities: Activity[] = [];
         familySpaces.forEach(space => {

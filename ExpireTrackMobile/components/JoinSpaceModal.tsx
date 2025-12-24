@@ -9,8 +9,10 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    Dimensions
 } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSpaceStore } from '../store/spaceStore';
 import { colors } from '../theme/colors';
 
@@ -29,6 +31,9 @@ export default function JoinSpaceModal({
 }: JoinSpaceModalProps) {
     const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
+    const [permission, requestPermission] = useCameraPermissions();
+    const [hasScanned, setHasScanned] = useState(false);
     const inputRef = useRef<TextInput>(null);
 
     const { joinSpaceWithCode } = useSpaceStore();
@@ -38,13 +43,65 @@ export default function JoinSpaceModal({
         if (visible) {
             setCode(initialCode || '');
             setIsLoading(false);
+            setShowScanner(false);
+            setHasScanned(false);
             // Focus input after a short delay
             setTimeout(() => inputRef.current?.focus(), 300);
         }
     }, [visible, initialCode]);
 
-    const handleJoin = () => {
-        const trimmedCode = code.trim().toUpperCase();
+    const handleScanPress = async () => {
+        if (!permission) {
+            return;
+        }
+
+        if (!permission.granted) {
+            const { granted } = await requestPermission();
+            if (!granted) {
+                Alert.alert(
+                    'Camera Permission',
+                    'We need camera access to scan QR codes. Please enable it in your device settings.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+        }
+
+        setShowScanner(true);
+    };
+
+    const handleBarCodeScanned = ({ data }: { data: string }) => {
+        // Prevent multiple scans
+        if (hasScanned) {
+            return;
+        }
+
+        setHasScanned(true);
+        console.log('📷 [JoinSpaceModal] QR Code scanned:', data);
+        setShowScanner(false);
+
+        // Extract code from deep link URL (e.g., expiretrack://join?code=XBUZE8&space=...)
+        let inviteCode = data;
+        if (data.includes('code=')) {
+            const match = data.match(/code=([A-Z0-9]+)/i);
+            if (match && match[1]) {
+                inviteCode = match[1];
+            }
+        }
+
+        const formattedCode = formatCode(inviteCode);
+        setCode(formattedCode);
+
+        // Auto-submit with the extracted code (don't rely on state)
+        setTimeout(() => {
+            if (formattedCode.length >= 6) {
+                handleJoinWithCode(formattedCode);
+            }
+        }, 300);
+    };
+
+    const handleJoinWithCode = async (inviteCode: string) => {
+        const trimmedCode = inviteCode.trim().toUpperCase();
 
         if (!trimmedCode) {
             Alert.alert('Required', 'Please enter an invite code');
@@ -58,9 +115,8 @@ export default function JoinSpaceModal({
 
         setIsLoading(true);
 
-        // Simulate network delay for better UX
-        setTimeout(() => {
-            const result = joinSpaceWithCode(trimmedCode);
+        try {
+            const result = await joinSpaceWithCode(trimmedCode);
             setIsLoading(false);
 
             if (result.success) {
@@ -102,8 +158,13 @@ export default function JoinSpaceModal({
 
                 Alert.alert(title, message);
             }
-        }, 500);
+        } catch (error) {
+            setIsLoading(false);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
+        }
     };
+
+    const handleJoin = () => handleJoinWithCode(code);
 
     const formatCode = (text: string) => {
         // Remove any non-alphanumeric characters and uppercase
@@ -156,6 +217,15 @@ export default function JoinSpaceModal({
                             💡 Ask the Family Space owner to share their invite code with you.
                         </Text>
 
+                        {/* Scan QR Button */}
+                        <TouchableOpacity
+                            style={styles.scanBtn}
+                            onPress={handleScanPress}
+                        >
+                            <Text style={styles.scanIcon}>📷</Text>
+                            <Text style={styles.scanText}>Scan QR Code</Text>
+                        </TouchableOpacity>
+
                         {/* Footer */}
                         <View style={styles.footer}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
@@ -179,6 +249,40 @@ export default function JoinSpaceModal({
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            {/* Scanner Modal */}
+            {showScanner && (
+                <Modal visible={showScanner} animationType="slide">
+                    <View style={styles.scannerContainer}>
+                        <CameraView
+                            style={styles.camera}
+                            barcodeScannerSettings={{
+                                barcodeTypes: ['qr'],
+                            }}
+                            onBarcodeScanned={handleBarCodeScanned}
+                        />
+                        <View style={styles.scannerOverlay}>
+                            <Text style={styles.scannerTitle}>Scan QR Code</Text>
+                            <Text style={styles.scannerHint}>Point camera at the invite QR code</Text>
+
+                            {/* Scanning Frame */}
+                            <View style={styles.scanFrame}>
+                                <View style={[styles.corner, styles.cornerTopLeft]} />
+                                <View style={[styles.corner, styles.cornerTopRight]} />
+                                <View style={[styles.corner, styles.cornerBottomLeft]} />
+                                <View style={[styles.corner, styles.cornerBottomRight]} />
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.scannerCloseBtn}
+                                onPress={() => setShowScanner(false)}
+                            >
+                                <Text style={styles.scannerCloseText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+            )}
         </Modal>
     );
 }
@@ -297,5 +401,114 @@ const styles = StyleSheet.create({
     joinText: {
         fontWeight: 'bold',
         color: '#fff',
+    },
+    scanBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: '#f3f4f6',
+        borderWidth: 2,
+        borderColor: '#e5e7eb',
+        borderStyle: 'dashed',
+        marginTop: 16,
+    },
+    scanIcon: {
+        fontSize: 24,
+        marginRight: 8,
+    },
+    scanText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#374151',
+    },
+    // Scanner Modal Styles
+    scannerContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    camera: {
+        flex: 1,
+    },
+    scannerOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        padding: 40,
+        alignItems: 'center',
+    },
+    scannerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginTop: 40,
+        textShadowColor: 'rgba(0,0,0,0.75)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
+    },
+    scannerHint: {
+        fontSize: 16,
+        color: '#fff',
+        marginTop: 12,
+        textShadowColor: 'rgba(0,0,0,0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    scannerCloseBtn: {
+        marginTop: 32,
+        paddingVertical: 12,
+        paddingHorizontal: 32,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    scannerCloseText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    scanFrame: {
+        width: 250,
+        height: 250,
+        marginTop: 60,
+        position: 'relative',
+    },
+    corner: {
+        position: 'absolute',
+        width: 40,
+        height: 40,
+        borderColor: '#10b981',
+        borderWidth: 4,
+    },
+    cornerTopLeft: {
+        top: 0,
+        left: 0,
+        borderRightWidth: 0,
+        borderBottomWidth: 0,
+        borderTopLeftRadius: 12,
+    },
+    cornerTopRight: {
+        top: 0,
+        right: 0,
+        borderLeftWidth: 0,
+        borderBottomWidth: 0,
+        borderTopRightRadius: 12,
+    },
+    cornerBottomLeft: {
+        bottom: 0,
+        left: 0,
+        borderRightWidth: 0,
+        borderTopWidth: 0,
+        borderBottomLeftRadius: 12,
+    },
+    cornerBottomRight: {
+        bottom: 0,
+        right: 0,
+        borderLeftWidth: 0,
+        borderTopWidth: 0,
+        borderBottomRightRadius: 12,
     },
 });

@@ -21,7 +21,15 @@ const PASTEL_COLORS = [
 
 export default function SpacesScreen() {
     const navigation = useNavigation();
-    const { locations, getTopLevelSpaces, getChildSpaces, getProductsByLocation, products, categories, deleteProduct, getLocationsBySpace } = useProductStore();
+    const {
+        locations,
+        getTopLevelLocations,
+        getChildLocations,
+        getProductsByLocation,
+        products,
+        deleteProduct,
+        getLocationsBySpace
+    } = useProductStore();
     const { currentSpaceId } = useSpaceStore();
     const { setAddModalOpen, setDefaultLocationId, setEditingProduct, setAddSpaceModalOpen, setAddSpaceParentId } = useUIStore();
     const { theme: themeSetting } = useSettingsStore();
@@ -40,8 +48,8 @@ export default function SpacesScreen() {
 
     // Get locations for current space
     const spaceLocations = useMemo(() => {
-        return getLocationsBySpace(currentSpaceId);
-    }, [getLocationsBySpace, currentSpaceId]);
+        return locations.filter(l => l.spaceId === currentSpaceId);
+    }, [locations, currentSpaceId]);
 
     const topLevelSpaces = useMemo(() => {
         return spaceLocations.filter(l => !l.parentId);
@@ -111,11 +119,11 @@ export default function SpacesScreen() {
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteSpacePress(space.id) }} style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]}>
                                 <TrashIcon size={16} color="#ef4444" />
                             </TouchableOpacity>
-                            {/* Add Sub-Space handled by opening modal */}
+                            {/* Add Sub-Location handled by opening modal */}
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); openAddSpaceModal(space.id) }} style={[styles.actionBtn, { backgroundColor: '#818cf8', marginRight: 4 }]}>
                                 <PlusIcon size={16} color="#fff" />
                             </TouchableOpacity>
-                            {/* Expand Button (Chevron or similar to toggle sub-spaces) */}
+                            {/* Expand Button (Chevron or similar to toggle sub-locations) */}
                             {hasChildren && (
                                 <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleExpand(space.id) }} style={[styles.actionBtn, { backgroundColor: 'rgba(255,255,255,0.5)' }]}>
                                     <Text style={{ fontSize: 12, fontWeight: 'bold' }}>{isExpanded ? '▲' : '▼'}</Text>
@@ -134,7 +142,7 @@ export default function SpacesScreen() {
                     )}
                 </TouchableOpacity>
 
-                {/* Expanded Content (Sub-Spaces Only) */}
+                {/* Expanded Content (Sub-Locations Only) */}
                 {isExpanded && (
                     <View style={{ marginLeft: 16, marginTop: -4, marginBottom: 8, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#e5e7eb' }}>
                         {childSpaces.map((child, i) => (
@@ -178,19 +186,27 @@ export default function SpacesScreen() {
                     </View>
                 </TouchableOpacity>
 
-                {/* Spaces List */}
+                {/* Locations List */}
                 <View style={{ marginTop: 20 }}>
-                    {topLevelSpaces.map((space, index) => (
-                        <SpaceCard key={space.id} space={space} index={index} />
-                    ))}
+                    {topLevelSpaces.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyIcon}>📂</Text>
+                            <Text style={styles.emptyTitle}>No Locations Yet</Text>
+                            <Text style={styles.emptyText}>Create your first location (like Fridge or Pantry) to start organizing this space.</Text>
+                        </View>
+                    ) : (
+                        topLevelSpaces.map((space, index) => (
+                            <SpaceCard key={space.id} space={space} index={index} />
+                        ))
+                    )}
                 </View>
 
-                {/* Add New Space Button */}
+                {/* Add New Location Button */}
                 <TouchableOpacity style={styles.addSpaceCard} onPress={() => openAddSpaceModal()}>
                     <View style={styles.addIconCircle}>
                         <PlusIcon size={24} color={colors.primary[theme]} />
                     </View>
-                    <Text style={styles.addSpaceText}>Add New Space</Text>
+                    <Text style={styles.addSpaceText}>Add New Location</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 100 }} />
@@ -283,4 +299,8 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         width: 48, height: 48, borderRadius: 24, backgroundColor: colors.secondary[theme], alignItems: 'center', justifyContent: 'center', marginBottom: 8,
     },
     addSpaceText: { fontSize: 16, fontWeight: '600', color: colors.muted[theme] },
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, paddingHorizontal: 20 },
+    emptyIcon: { fontSize: 40, marginBottom: 12 },
+    emptyTitle: { fontSize: 18, fontWeight: 'bold', color: colors.foreground[theme], marginBottom: 8 },
+    emptyText: { fontSize: 14, color: colors.muted[theme], textAlign: 'center', lineHeight: 20 },
 });

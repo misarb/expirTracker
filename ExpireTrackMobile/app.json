@@ -54,7 +54,8 @@
       ],
       "expo-asset",
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-barcode-scanner"
     ],
     "extra": {
       "eas": {
