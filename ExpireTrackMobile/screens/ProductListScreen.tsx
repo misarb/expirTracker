@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, useColorScheme } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useProductStore } from '../store/productStore';
+import { useSpaceStore, MY_SPACE_ID } from '../store/spaceStore';
 import { useUIStore } from '../store/uiStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { colors } from '../theme/colors';
@@ -28,13 +29,21 @@ export default function ProductListScreen() {
     const theme = isDark ? 'dark' : 'light';
     const styles = getStyles(theme);
 
-    const { products, getProductsByStatus, deleteProduct } = useProductStore();
+    const { products, deleteProduct } = useProductStore();
+    const { currentSpaceId } = useSpaceStore();
     const { setEditingProduct, setAddModalOpen } = useUIStore();
 
+    // Filter products by current space first
+    const spaceProducts = useMemo(() => {
+        return products.filter((p) =>
+            p.spaceId === currentSpaceId || (!p.spaceId && currentSpaceId === MY_SPACE_ID)
+        );
+    }, [products, currentSpaceId]);
+
     const filteredProducts = useMemo(() => {
-        if (status === 'all') return products;
-        return getProductsByStatus(status);
-    }, [products, status, getProductsByStatus]);
+        if (status === 'all') return spaceProducts;
+        return spaceProducts.filter(p => p.status === status);
+    }, [spaceProducts, status]);
 
     const handleEdit = (product: any) => {
         setEditingProduct(product);

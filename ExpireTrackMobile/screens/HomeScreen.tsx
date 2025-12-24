@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, useColorScheme, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,8 +6,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useProductStore } from '../store/productStore';
 import { useUIStore } from '../store/uiStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useSpaceStore, MY_SPACE_ID } from '../store/spaceStore';
+import { useUserStore } from '../store/userStore';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors';
 import ProductCard from '../components/ProductCard';
+import SpaceSelector from '../components/SpaceSelector';
 import { Product } from '../types';
 import { PlusIcon, FolderIcon } from '../components/Icons';
 import { useI18n } from '../lib/i18n';
@@ -28,24 +31,51 @@ const SunIcon = ({ size = 20, color = "#fff" }) => (
     </Svg>
 );
 
-export default function HomeScreen() {
-    const navigation = useNavigation();
+interface HomeScreenProps {
+    onCreateSpace: () => void;
+    onJoinSpace: () => void;
+    onOpenProUpgrade?: () => void;
+    onInviteMembers?: (spaceId: string) => void;
+    onSpaceSettings?: (spaceId: string) => void;
+}
+
+export default function HomeScreen({ onCreateSpace, onJoinSpace, onOpenProUpgrade, onInviteMembers, onSpaceSettings }: HomeScreenProps) {
+    const navigation = useNavigation<any>();
     const systemTheme = useColorScheme();
     const { theme, setTheme, language, setLanguage } = useSettingsStore();
     const isDark = theme === 'system' ? systemTheme === 'dark' : theme === 'dark';
     const { t } = useI18n();
 
-    const { products, getProductsByStatus, deleteProduct } = useProductStore();
+    const { products, getProductsByStatus, deleteProduct, getProductsBySpace, migrateProductsToSpace } = useProductStore();
     const { setAddModalOpen, setEditingProduct, setDefaultLocationId, setAddSpaceModalOpen, setAddSpaceParentId } = useUIStore();
+    const { currentSpaceId, initializeMySpace, getCurrentSpace, hasFamilySpaces, isOwner } = useSpaceStore();
+    const { initializeUser, isPro, hasSeenFamilySpaceOnboarding, setHasSeenFamilySpaceOnboarding } = useUserStore();
+
+    // Initialize user and space on mount
+    useEffect(() => {
+        initializeUser();
+        initializeMySpace();
+        migrateProductsToSpace();
+    }, []);
+
+    const currentSpace = getCurrentSpace();
+    const isMySpace = currentSpaceId === MY_SPACE_ID;
+
+    // Get products for current space only
+    const spaceProducts = useMemo(() => {
+        return products.filter((p) =>
+            p.spaceId === currentSpaceId || (!p.spaceId && currentSpaceId === MY_SPACE_ID)
+        );
+    }, [currentSpaceId, products]);
 
     const stats = useMemo(() => {
-        const safe = getProductsByStatus('safe').length;
-        const expiringSoon = getProductsByStatus('expiring-soon').length;
-        const expired = getProductsByStatus('expired').length;
-        const total = products.length;
+        const safe = spaceProducts.filter(p => p.status === 'safe').length;
+        const expiringSoon = spaceProducts.filter(p => p.status === 'expiring-soon').length;
+        const expired = spaceProducts.filter(p => p.status === 'expired').length;
+        const total = spaceProducts.length;
         const healthScore = total > 0 ? Math.round(((safe) / total) * 100) : 100;
         return { safe, expiringSoon, expired, total, healthScore };
-    }, [products, getProductsByStatus]);
+    }, [spaceProducts]);
 
     // Handlers
     const handleEdit = (product: Product) => {
@@ -70,18 +100,21 @@ export default function HomeScreen() {
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (stats.healthScore / 100) * circumference;
 
+    // Should show Family Space promo card?
+    const showFamilyPromo = isPro && !hasFamilySpaces() && !hasSeenFamilySpaceOnboarding;
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
                 {/* HERO CARD - Violet Gradient */}
                 <View style={styles.heroContainer}>
                     <LinearGradient
-                        colors={['#7c3aed', '#6366f1']} // Violet-600 to Indigo-500
+                        colors={isMySpace ? ['#7c3aed', '#6366f1'] : ['#6366f1', '#8b5cf6']}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={styles.heroCard}
                     >
-                        {/* Header Inside Hero */}
+                        {/* Header Inside Hero - Top Row with Logo */}
                         <View style={styles.heroHeader}>
                             <View style={{ flexDirection: 'row' }}>
                                 <Text style={styles.brandExpire}>Expire</Text>
@@ -97,13 +130,29 @@ export default function HomeScreen() {
                             </View>
                         </View>
 
+                        {/* Space Selector Row */}
+                        <View style={styles.spaceSelectorRow}>
+                            <SpaceSelector
+                                onCreateSpace={onCreateSpace}
+                                onJoinSpace={onJoinSpace}
+                                onOpenProUpgrade={onOpenProUpgrade}
+                                onSpaceSettings={onSpaceSettings}
+                            />
+                        </View>
+
 
                         {/* Circular Progress or Empty State */}
                         {stats.total === 0 ? (
                             <View style={styles.emptyStateContainer}>
                                 <Text style={styles.emptyStateIcon}>📦</Text>
-                                <Text style={styles.emptyStateTitle}>Start Tracking</Text>
-                                <Text style={styles.emptyStateSubtitle}>Add your first product to begin</Text>
+                                <Text style={styles.emptyStateTitle}>
+                                    {isMySpace ? 'Start Tracking' : 'Empty Space'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtitle}>
+                                    {isMySpace
+                                        ? 'Add your first product to begin'
+                                        : 'Add the first product to this shared space'}
+                                </Text>
                             </View>
                         ) : (
                             <>
@@ -135,13 +184,43 @@ export default function HomeScreen() {
 
                                 {/* Footer Message */}
                                 <View style={styles.heroFooter}>
-                                    <Text style={styles.heroTitle}>{t('welcome')}</Text>
+                                    <Text style={styles.heroTitle}>
+                                        {isMySpace ? t('welcome') : currentSpace?.name || 'Family Space'}
+                                    </Text>
                                     <Text style={styles.heroSubtitle}>{stats.safe} / {stats.total} safe</Text>
                                 </View>
                             </>
                         )}
                     </LinearGradient>
                 </View>
+
+                {/* FAMILY SPACE PROMO CARD - for Pro users who haven't created a space */}
+                {showFamilyPromo && (
+                    <View style={styles.section}>
+                        <TouchableOpacity
+                            style={styles.promoCard}
+                            onPress={onCreateSpace}
+                            activeOpacity={0.9}
+                        >
+                            <View style={styles.promoHeader}>
+                                <Text style={styles.promoIcon}>👨‍👩‍👧‍👦</Text>
+                                <TouchableOpacity
+                                    style={styles.promoDismiss}
+                                    onPress={() => setHasSeenFamilySpaceOnboarding(true)}
+                                >
+                                    <Text style={styles.promoDismissText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={styles.promoTitle}>Share with Your Family</Text>
+                            <Text style={styles.promoDesc}>
+                                Create a Family Space to track products together. Everyone stays in sync!
+                            </Text>
+                            <View style={styles.promoBtn}>
+                                <Text style={styles.promoBtnText}>Create Family Space →</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {/* STATS GRID - Vibrant Cards */}
                 <View style={styles.section}>
@@ -205,6 +284,21 @@ export default function HomeScreen() {
                             <Text style={styles.actionLabel}>{t('addSpace')}</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {/* Invite Members - shown only in Family Space for owners */}
+                    {!isMySpace && isOwner(currentSpaceId) && (
+                        <TouchableOpacity
+                            style={styles.inviteActionBtn}
+                            onPress={() => onInviteMembers?.(currentSpaceId)}
+                        >
+                            <Text style={styles.inviteActionIcon}>🔗</Text>
+                            <View style={styles.inviteActionContent}>
+                                <Text style={styles.inviteActionText}>Invite Family Members</Text>
+                                <Text style={styles.inviteActionSubtext}>Share code to let others join</Text>
+                            </View>
+                            <Text style={styles.inviteActionArrow}>→</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* PRODUCTS THAT NEED ATTENTION */}
@@ -216,7 +310,7 @@ export default function HomeScreen() {
                         </View>
                         <View style={{ gap: 10 }}>
                             {/* Show Expired first */}
-                            {getProductsByStatus('expired').map((p) => (
+                            {getProductsByStatus('expired', currentSpaceId).map((p) => (
                                 <ProductCard
                                     key={p.id}
                                     product={p}
@@ -225,7 +319,7 @@ export default function HomeScreen() {
                                 />
                             ))}
                             {/* Then Expiring Soon */}
-                            {getProductsByStatus('expiring-soon').map((p) => (
+                            {getProductsByStatus('expiring-soon', currentSpaceId).map((p) => (
                                 <ProductCard
                                     key={p.id}
                                     product={p}
@@ -276,6 +370,10 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center',
     },
     langText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+    spaceSelectorRow: {
+        width: '100%',
+        marginBottom: 10,
+    },
 
     emptyStateContainer: { alignItems: 'center', justifyContent: 'center', marginVertical: 30, paddingHorizontal: 40 },
     emptyStateIcon: { fontSize: 48, marginBottom: 12 },
@@ -321,4 +419,85 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         borderWidth: 1, borderColor: colors.border[theme], shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     actionLabel: { fontSize: 14, fontWeight: '600', color: colors.foreground[theme] },
+
+    // Invite Action Button (shown in Family Spaces)
+    inviteActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)',
+        borderRadius: 16,
+        padding: 16,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: theme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)',
+    },
+    inviteActionIcon: {
+        fontSize: 28,
+        marginRight: 12,
+    },
+    inviteActionContent: {
+        flex: 1,
+    },
+    inviteActionText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.foreground[theme],
+    },
+    inviteActionSubtext: {
+        fontSize: 12,
+        color: colors.muted[theme],
+        marginTop: 2,
+    },
+    inviteActionArrow: {
+        fontSize: 18,
+        color: colors.primary[theme],
+    },
+
+    // Promo Card
+    promoCard: {
+        backgroundColor: theme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.08)',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: theme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)',
+    },
+    promoHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    promoIcon: {
+        fontSize: 40,
+    },
+    promoDismiss: {
+        padding: 4,
+    },
+    promoDismissText: {
+        fontSize: 18,
+        color: colors.muted[theme],
+    },
+    promoTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.foreground[theme],
+        marginTop: 12,
+        marginBottom: 6,
+    },
+    promoDesc: {
+        fontSize: 14,
+        color: colors.muted[theme],
+        lineHeight: 20,
+    },
+    promoBtn: {
+        backgroundColor: colors.primary[theme],
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    promoBtnText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 15,
+    },
 }); 

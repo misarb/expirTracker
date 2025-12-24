@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GridIcon, FolderIcon, PlusIcon, HeartIcon, SettingsIcon } from './Icons';
+import { GridIcon, FolderIcon, PlusIcon, HeartIcon, SettingsIcon, UsersIcon } from './Icons';
 import { useProductStore } from '../store/productStore';
 import { useUIStore } from '../store/uiStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useUserStore } from '../store/userStore';
 import { colors } from '../theme/colors';
 import { useColorScheme } from 'react-native';
 
@@ -13,30 +14,34 @@ import { useColorScheme } from 'react-native';
 // Home: Cyan (#06b6d4)
 // List: Purple (#a855f7)
 // Add: Primary (Indigo)
-// Support: Rose (#f43f5e)
+// Support/Members: Rose (#f43f5e) / Teal (#14b8a6)
 // Settings: Slate (#64748b) - for dark/light mode we might adjust
-
-const TAB_ITEMS = [
-    { label: 'Home', icon: GridIcon, color: '#06b6d4', routeIndex: 0 },
-    { label: 'Spaces', icon: FolderIcon, color: '#a855f7', routeIndex: 1 },
-    { label: 'Add', icon: PlusIcon, color: '#6366F1', routeIndex: -1 }, // Special center button
-    { label: 'Support', icon: HeartIcon, color: '#f43f5e', routeIndex: 2 },
-    { label: 'Settings', icon: SettingsIcon, color: '#94a3b8', routeIndex: 3 },
-];
 
 export default function CustomTabBar({ state, descriptors, navigation }: any) {
     const insets = useSafeAreaInsets();
-    const { theme: themeSetting } = useSettingsStore(); // Import needed if not global
+    const { theme: themeSetting } = useSettingsStore();
     const systemTheme = useColorScheme();
-    const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark'; // Unified logic
+    const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
     const { setAddModalOpen } = useUIStore();
+    const { isPro } = useUserStore();
+
+    // Dynamic TAB_ITEMS based on Pro status
+    const TAB_ITEMS = useMemo(() => [
+        { label: 'Home', icon: GridIcon, color: '#06b6d4', routeIndex: 0 },
+        { label: 'Spaces', icon: FolderIcon, color: '#a855f7', routeIndex: 1 },
+        { label: 'Add', icon: PlusIcon, color: '#6366F1', routeIndex: -1 }, // Special center button
+        isPro
+            ? { label: 'Members', icon: UsersIcon, color: '#14b8a6', routeIndex: 2 }
+            : { label: 'Support', icon: HeartIcon, color: '#f43f5e', routeIndex: 2 },
+        { label: 'Settings', icon: SettingsIcon, color: '#94a3b8', routeIndex: 3 },
+    ], [isPro]);
 
     // We have 5 slots in UI, but state.routes only has 4.
     // Logic: 
     // UI Index 0 (Home) -> route[0]
     // UI Index 1 (List) -> route[1]
     // UI Index 2 (Add) -> Open Modal
-    // UI Index 3 (Support) -> route[2]
+    // UI Index 3 (Support/Members) -> route[2]
     // UI Index 4 (Settings) -> route[3]
 
     // Determine which UI Tab is active
@@ -44,7 +49,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: any) {
     // Map route index to UI index
     // 0 (Home) -> 0
     // 1 (Spaces) -> 1
-    // 2 (Support) -> 3
+    // 2 (Support/Members) -> 3
     // 3 (Settings) -> 4
     const uiActiveIndex = activeRouteIndex === 0 ? 0 : activeRouteIndex === 1 ? 1 : activeRouteIndex === 2 ? 3 : 4;
 

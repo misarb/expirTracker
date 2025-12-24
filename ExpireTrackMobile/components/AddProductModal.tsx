@@ -5,7 +5,9 @@ import { Product, Category, Location } from '../types';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors';
 import { ScanIcon } from './Icons';
 import BarcodeScanner from './BarcodeScanner';
+import SpaceBanner from './SpaceBanner';
 import { useProductStore } from '../store/productStore';
+import { useSpaceStore } from '../store/spaceStore';
 import { useI18n } from '../lib/i18n';
 import BarcodeService from '../lib/barcodeService';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,8 +31,12 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
     const insets = useSafeAreaInsets();
     const styles = getStyles(theme, insets.bottom);
 
-    const { locations, addProduct, updateProduct } = useProductStore();
+    const { locations, addProduct, updateProduct, getLocationsBySpace } = useProductStore();
     const { defaultLocationId } = useUIStore();
+    const { currentSpaceId } = useSpaceStore();
+
+    // Get locations for current space
+    const spaceLocations = getLocationsBySpace(currentSpaceId);
 
     // Form State
     const [name, setName] = useState('');
@@ -104,7 +110,6 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
             } else {
                 // New Product defaults
                 setName('');
-                setLocationId(defaultLocationId || locations[0]?.id || '');
                 setExpirationDate(new Date().toISOString().split('T')[0]);
                 setPurchaseDate('');
                 setQuantity('1');
@@ -119,7 +124,16 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                 setNotifyTiming('');
             }
         }
-    }, [visible, editingProduct, locations]);
+    }, [visible, editingProduct]);
+
+    // Set default location when modal opens (separate effect to avoid resetting form)
+    useEffect(() => {
+        if (visible && !editingProduct) {
+            // Set default location from prop or first available
+            const defaultLoc = defaultLocationId || spaceLocations[0]?.id || '';
+            setLocationId(defaultLoc);
+        }
+    }, [visible, editingProduct, defaultLocationId]);
 
     const { t } = useI18n();
 
@@ -214,6 +228,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
         const data = {
             name,
             locationId,
+            spaceId: currentSpaceId, // Add product to current space
             expirationDate: effectiveExpDate,
             purchaseDate: purchaseDate || undefined,
             quantity: quantity ? parseInt(quantity) : undefined,
@@ -248,6 +263,9 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                                 <Text style={styles.closeText}>✕</Text>
                             </TouchableOpacity>
                         </View>
+
+                        {/* Space Banner - show which space product will be added to */}
+                        <SpaceBanner />
 
                         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
                             {/* Name & Scan */}
@@ -289,9 +307,9 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                             {/* Space */}
 
                             <View style={styles.field}>
-                                <Text style={styles.label}>Space</Text>
+                                <Text style={styles.label}>Location</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                                    {locations.map(loc => (
+                                    {spaceLocations.map(loc => (
                                         <TouchableOpacity
                                             key={loc.id}
                                             style={[styles.chip, locationId === loc.id && styles.chipActive]}

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Dimens
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useProductStore } from '../store/productStore';
+import { useSpaceStore, MY_SPACE_ID } from '../store/spaceStore';
 import { useUIStore } from '../store/uiStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors'; // Assuming these exist
@@ -34,9 +35,17 @@ export default function SpaceDetailScreen() {
     const theme = isDark ? 'dark' : 'light';
 
     const { locations, products, deleteProduct } = useProductStore();
+    const { currentSpaceId } = useSpaceStore();
     const { setEditingProduct, setDefaultLocationId, setAddModalOpen } = useUIStore();
 
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter products by current space first
+    const spaceProducts = useMemo(() => {
+        return products.filter((p) =>
+            p.spaceId === currentSpaceId || (!p.spaceId && currentSpaceId === MY_SPACE_ID)
+        );
+    }, [products, currentSpaceId]);
 
     const space = useMemo(() => {
         if (isAllProducts) return { name: 'All Products', icon: '📦', id: null };
@@ -44,22 +53,10 @@ export default function SpaceDetailScreen() {
     }, [spaceId, isAllProducts, locations]);
 
     const filteredProducts = useMemo(() => {
-        let list = products;
+        let list = spaceProducts; // Start with space-filtered products
 
-        // Filter by Space
-        if (!isAllProducts) {
-            // Logic to include sub-space products? 
-            // Screenshot shows "Bathroom" having items. 
-            // Usually "Space Detail" shows products IN that space + descendants? 
-            // Or just direct? The screenshot "All Products" implies flattened view.
-            // If I click "Bathroom", I expect items in Bathroom.
-            // Let's assume recursive for now to be helpful, or direct if strict content.
-            // For parity with previous logic, let's show all products strictly in this location (direct).
-            // Wait, user said "if i click on space i can see the product on it or add one also for sup space".
-            // We can do recursive helper function from store if needed. 
-            // For now, let's filter by locationId match.
-
-            // Update: The screenshot shows "2 items".
+        // Filter by Location if not "All Products"
+        if (!isAllProducts && spaceId) {
             list = list.filter(p => p.locationId === spaceId);
         }
 
@@ -70,7 +67,7 @@ export default function SpaceDetailScreen() {
         }
 
         return list;
-    }, [products, spaceId, isAllProducts, searchQuery]);
+    }, [spaceProducts, spaceId, isAllProducts, searchQuery]);
 
     const handleEdit = (product: any) => {
         setEditingProduct(product);

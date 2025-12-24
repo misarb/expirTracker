@@ -1,5 +1,8 @@
 // Types for the Product Expiration Tracking App
 
+// Re-export space types
+export * from './spaces';
+
 export type ProductStatus = 'safe' | 'expiring-soon' | 'expired';
 
 export interface Category {
@@ -16,12 +19,15 @@ export interface Location {
     color: string;
     description?: string;
     parentId?: string | null;
+    spaceId?: string; // Which space this location belongs to
+    createdBy?: string; // User who created this folder (for shared spaces)
 }
 
 export interface Product {
     id: string;
     name: string;
     locationId: string;
+    spaceId: string; // Which space this product belongs to (defaults to 'my-space')
     expirationDate: string; // ISO Date String YYYY-MM-DD
     purchaseDate?: string;
     quantity?: number;
@@ -52,10 +58,10 @@ export const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 export const DEFAULT_LOCATIONS: Location[] = [
-    { id: 'kitchen', name: 'Kitchen', icon: '🍳', color: '#F59E0B' },
-    { id: 'bathroom', name: 'Bathroom', icon: '🚿', color: '#06B6D4' },
-    { id: 'medicine-cabinet', name: 'Medicine Cabinet', icon: '💊', color: '#EF4444' },
-    { id: 'bedroom', name: 'Bedroom', icon: '🛏️', color: '#8B5CF6' },
-    { id: 'garage', name: 'Garage', icon: '🏠', color: '#6B7280' },
-    { id: 'office', name: 'Office', icon: '💼', color: '#3B82F6' },
+    { id: 'kitchen', name: 'Kitchen', icon: '🍳', color: '#F59E0B', spaceId: 'my-space' },
+    { id: 'bathroom', name: 'Bathroom', icon: '🚿', color: '#06B6D4', spaceId: 'my-space' },
+    { id: 'medicine-cabinet', name: 'Medicine Cabinet', icon: '💊', color: '#EF4444', spaceId: 'my-space' },
+    { id: 'bedroom', name: 'Bedroom', icon: '🛏️', color: '#8B5CF6', spaceId: 'my-space' },
+    { id: 'garage', name: 'Garage', icon: '🏠', color: '#6B7280', spaceId: 'my-space' },
+    { id: 'office', name: 'Office', icon: '💼', color: '#3B82F6', spaceId: 'my-space' },
 ];

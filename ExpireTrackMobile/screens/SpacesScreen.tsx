@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, useColorScheme, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useProductStore } from '../store/productStore';
+import { useSpaceStore, MY_SPACE_ID } from '../store/spaceStore';
 import { useUIStore } from '../store/uiStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors';
@@ -20,7 +21,8 @@ const PASTEL_COLORS = [
 
 export default function SpacesScreen() {
     const navigation = useNavigation();
-    const { locations, getTopLevelSpaces, getChildSpaces, getProductsByLocation, products, categories, deleteProduct } = useProductStore();
+    const { locations, getTopLevelSpaces, getChildSpaces, getProductsByLocation, products, categories, deleteProduct, getLocationsBySpace } = useProductStore();
+    const { currentSpaceId } = useSpaceStore();
     const { setAddModalOpen, setDefaultLocationId, setEditingProduct, setAddSpaceModalOpen, setAddSpaceParentId } = useUIStore();
     const { theme: themeSetting } = useSettingsStore();
 
@@ -28,6 +30,22 @@ export default function SpacesScreen() {
     const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
     const styles = getStyles(isDark ? 'dark' : 'light');
     const theme = isDark ? 'dark' : 'light';
+
+    // Filter products by current space
+    const spaceProducts = useMemo(() => {
+        return products.filter((p) =>
+            p.spaceId === currentSpaceId || (!p.spaceId && currentSpaceId === MY_SPACE_ID)
+        );
+    }, [products, currentSpaceId]);
+
+    // Get locations for current space
+    const spaceLocations = useMemo(() => {
+        return getLocationsBySpace(currentSpaceId);
+    }, [getLocationsBySpace, currentSpaceId]);
+
+    const topLevelSpaces = useMemo(() => {
+        return spaceLocations.filter(l => !l.parentId);
+    }, [spaceLocations]);
 
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
@@ -59,8 +77,8 @@ export default function SpacesScreen() {
     };
 
     const SpaceCard = ({ space, index, level = 0 }: any) => {
-        const childSpaces = getChildSpaces(space.id);
-        const directProducts = products.filter(p => p.locationId === space.id);
+        const childSpaces = spaceLocations.filter(l => l.parentId === space.id);
+        const directProducts = spaceProducts.filter(p => p.locationId === space.id);
         const isExpanded = expandedIds.includes(space.id);
         const hasChildren = childSpaces.length > 0;
 
@@ -151,7 +169,7 @@ export default function SpacesScreen() {
                             <Text style={{ fontSize: 32 }}>🏢</Text>
                         </View>
                         <View style={styles.countBadge}>
-                            <Text style={{ fontWeight: 'bold', color: '#171717' }}>{products.length}</Text>
+                            <Text style={{ fontWeight: 'bold', color: '#171717' }}>{spaceProducts.length}</Text>
                         </View>
                     </View>
                     <View style={{ marginTop: 12 }}>
@@ -162,7 +180,7 @@ export default function SpacesScreen() {
 
                 {/* Spaces List */}
                 <View style={{ marginTop: 20 }}>
-                    {getTopLevelSpaces().map((space, index) => (
+                    {topLevelSpaces.map((space, index) => (
                         <SpaceCard key={space.id} space={space} index={index} />
                     ))}
                 </View>
