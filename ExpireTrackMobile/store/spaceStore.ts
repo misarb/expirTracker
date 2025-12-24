@@ -383,15 +383,37 @@ export const useSpaceStore = create<SpaceStore>()(
 
             leaveSpace: async (spaceId: string) => {
                 const userId = useUserStore.getState().getUserId();
-                if (!userId) return;
+                console.log('🚪 [SpaceStore] Leaving space:', spaceId);
 
-                await supabase
-                    .from('members')
-                    .update({ status: 'LEFT' })
-                    .eq('space_id', spaceId)
-                    .eq('profile_id', userId);
+                if (!userId) {
+                    console.error('❌ [SpaceStore] No user ID');
+                    return;
+                }
 
-                await get().fetchSpaces();
+                try {
+                    const { error } = await supabase
+                        .from('members')
+                        .update({ status: 'LEFT' })
+                        .eq('space_id', spaceId)
+                        .eq('profile_id', userId);
+
+                    if (error) {
+                        console.error('❌ [SpaceStore] Leave space error:', error);
+                        return;
+                    }
+
+                    console.log('✅ [SpaceStore] Successfully left space');
+
+                    // Switch to My Space if we were in the space we just left
+                    if (get().currentSpaceId === spaceId) {
+                        set({ currentSpaceId: MY_SPACE_ID });
+                    }
+
+                    // Refresh spaces list
+                    await get().fetchSpaces();
+                } catch (err) {
+                    console.error('❌ [SpaceStore] Unexpected leave error:', err);
+                }
             },
 
             removeMember: async (spaceId: string, targetUserId: string) => {

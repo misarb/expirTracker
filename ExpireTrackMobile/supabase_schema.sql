@@ -133,13 +133,13 @@ ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Function to get spaces the user belongs to without triggering RLS loops
 CREATE OR REPLACE FUNCTION public.get_my_spaces()
-RETURNS TABLE (sid uuid) AS $$
+RETURNS TABLE(sid UUID) AS $$
 BEGIN
     RETURN QUERY
-    SELECT m.space_id 
-    FROM public.members m 
-    WHERE m.profile_id = auth.uid() 
-    AND m.status = 'ACTIVE';
+    SELECT space_id
+    FROM public.members
+    WHERE profile_id = auth.uid()
+      AND status = 'ACTIVE';  -- Only include ACTIVE memberships
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -166,6 +166,7 @@ CREATE POLICY "Spaces delete" ON public.spaces FOR DELETE USING (id IN (SELECT s
 -- Members: Break recursion with get_my_spaces()
 CREATE POLICY "Members select" ON public.members FOR SELECT USING (space_id IN (SELECT sid FROM public.get_my_spaces()));
 CREATE POLICY "Members insert" ON public.members FOR INSERT WITH CHECK (profile_id = auth.uid());
+CREATE POLICY "Members update" ON public.members FOR UPDATE USING (profile_id = auth.uid());
 CREATE POLICY "Members delete" ON public.members FOR DELETE USING (profile_id = auth.uid() OR (space_id IN (SELECT sid FROM public.get_my_spaces()) AND role = 'OWNER'));
 
 -- Invites, Products, Locations, Activities: Use get_my_spaces()
