@@ -50,6 +50,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
     const [isRecurring, setIsRecurring] = useState(false);
     const [recurringDays, setRecurringDays] = useState('7');
     const [notifyTiming, setNotifyTiming] = useState('');
+    const [criticalDays, setCriticalDays] = useState('7'); // Days before expiry to mark as "expiring soon"
 
     // Scanner State
     const [showScanner, setShowScanner] = useState(false);
@@ -101,6 +102,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                 setIsRecurring(editingProduct.isRecurring || false);
                 setRecurringDays(editingProduct.recurringDays?.toString() || '7');
                 setNotifyTiming(editingProduct.notifyTiming?.toString() || '');
+                setCriticalDays(editingProduct.notifyTiming?.toString() || '7');
             } else {
                 // New Product defaults
                 setName('');
@@ -117,6 +119,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                 setIsRecurring(false);
                 setRecurringDays('7');
                 setNotifyTiming('');
+                setCriticalDays('7');
             }
         }
     }, [visible, editingProduct, locations]);
@@ -225,7 +228,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
             openedDate: openedDate || undefined,
             isRecurring,
             recurringDays: isRecurring && recurringDays ? parseInt(recurringDays) : undefined,
-            notifyTiming: notifyTiming ? parseInt(notifyTiming) : undefined,
+            notifyTiming: criticalDays ? parseInt(criticalDays) : 7, // Use criticalDays for threshold
         };
 
         if (editingProduct) {
@@ -364,6 +367,21 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                                         )}
                                     </View>
                                 )}
+                            </View>
+
+                            {/* Critical Days - Expiry Threshold */}
+                            <View style={styles.field}>
+                                <Text style={styles.label}>⚠️ Critical Date (days before expiry)</Text>
+                                <Text style={[styles.label, { fontSize: 12, color: colors.muted[theme], marginTop: 2 }]}>
+                                    Products will be marked as "expiring soon" this many days before expiry
+                                </Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={criticalDays}
+                                    onChangeText={setCriticalDays}
+                                    keyboardType="numeric"
+                                    placeholder="7"
+                                />
                             </View>
 
                             {/* Purchase Date */}

@@ -15,7 +15,8 @@ export function calculateStatus(
     expirationDate: string,
     useShelfLife?: boolean,
     openedDate?: string,
-    shelfLifeDays?: number
+    shelfLifeDays?: number,
+    notifyTiming: number = 7 // Custom threshold in days, default 7
 ): ProductStatus {
     const today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -33,7 +34,7 @@ export function calculateStatus(
     const days = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (days < 0) return 'expired';
-    if (days <= 7) return 'expiring-soon';
+    if (days <= notifyTiming) return 'expiring-soon'; // Use custom threshold
     return 'safe';
 }
 
@@ -64,7 +65,7 @@ export const useProductStore = create<ProductStore>()(
 
             addProduct: (data) => {
                 const now = new Date().toISOString();
-                const status = calculateStatus(data.expirationDate, data.useShelfLife, data.openedDate, data.shelfLifeDays);
+                const status = calculateStatus(data.expirationDate, data.useShelfLife, data.openedDate, data.shelfLifeDays, data.notifyTiming || 7);
                 const newProduct = {
                     id: generateId(),
                     ...data,
@@ -88,7 +89,7 @@ export const useProductStore = create<ProductStore>()(
                 const updatedProducts = state.products.map((p) => {
                     if (p.id !== id) return p;
                     const merged = { ...p, ...updates };
-                    const status = merged.hasExpirationDate === false ? 'safe' : calculateStatus(merged.expirationDate, merged.useShelfLife, merged.openedDate, merged.shelfLifeDays);
+                    const status = merged.hasExpirationDate === false ? 'safe' : calculateStatus(merged.expirationDate, merged.useShelfLife, merged.openedDate, merged.shelfLifeDays, merged.notifyTiming || 7);
                     const finalProduct = { ...merged, status, updatedAt: new Date().toISOString() };
 
                     // Reschedule Notification
@@ -151,7 +152,7 @@ export const useProductStore = create<ProductStore>()(
             refreshStatuses: () => set((state) => ({
                 products: state.products.map((p) => ({
                     ...p,
-                    status: p.hasExpirationDate === false ? 'safe' : calculateStatus(p.expirationDate, p.useShelfLife, p.openedDate, p.shelfLifeDays)
+                    status: p.hasExpirationDate === false ? 'safe' : calculateStatus(p.expirationDate, p.useShelfLife, p.openedDate, p.shelfLifeDays, p.notifyTiming || 7)
                 })),
             })),
         }),
