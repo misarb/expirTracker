@@ -528,7 +528,7 @@ export const useSpaceStore = create<SpaceStore>()(
                     }
 
                     console.log('✅ [SpaceStore] Successfully transferred ownership');
-                    await get().fetchUserSpaces();
+                    await get().fetchSpaces();
                     return { success: true };
                 } catch (err: any) {
                     console.error('❌ [SpaceStore] Unexpected transfer error:', err);

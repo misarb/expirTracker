@@ -16,6 +16,8 @@ import * as Notifications from 'expo-notifications';
 import * as Clipboard from 'expo-clipboard';
 import { Svg, Path } from 'react-native-svg';
 import { rescheduleAllNotifications, cancelAllNotifications, registerForPushNotificationsAsync, sendTestNotification } from '../lib/notifications';
+import AvatarPickerModal from '../components/AvatarPickerModal';
+import { useSpaceStore } from '../store/spaceStore';
 
 // Icons
 const ChevronRight = ({ color = "#ccc" }: any) => (
@@ -48,6 +50,7 @@ export default function SettingsScreen() {
     // Permission States
     const [cameraStatus, setCameraStatus] = useState<string | null>(null);
     const [notifStatus, setNotifStatus] = useState<string | null>(null);
+    const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
     // Loading State
     const [isLoading, setIsLoading] = useState(false);
@@ -331,6 +334,20 @@ export default function SettingsScreen() {
         );
     };
 
+    const handleAvatarChange = async (emoji: string) => {
+        try {
+            const { updateAvatarEmoji } = useUserStore.getState();
+            await updateAvatarEmoji(emoji);
+
+            // Refresh spaces to update member avatars
+            const { fetchSpaces } = useSpaceStore.getState();
+            await fetchSpaces();
+        } catch (error) {
+            console.error('Avatar update error:', error);
+            Alert.alert('Error', 'Failed to update avatar');
+        }
+    };
+
     const styles = getStyles(theme === 'dark' ? 'dark' : 'light');
     const resolvedTheme = theme === 'dark' ? 'dark' : 'light';
 
@@ -349,9 +366,13 @@ export default function SettingsScreen() {
                     {currentUser ? (
                         <View style={styles.accountCard}>
                             <View style={styles.accountInfo}>
-                                <View style={[styles.avatarCircle, { backgroundColor: colors.primary[resolvedTheme] }]}>
+                                <TouchableOpacity
+                                    style={[styles.avatarCircle, { backgroundColor: colors.primary[resolvedTheme] }]}
+                                    onPress={() => setIsAvatarPickerOpen(true)}
+                                    activeOpacity={0.7}
+                                >
                                     <Text style={styles.avatarText}>{currentUser.avatarEmoji || '👤'}</Text>
-                                </View>
+                                </TouchableOpacity>
                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                     <Text style={styles.accountName}>{currentUser.displayName}</Text>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
@@ -555,6 +576,14 @@ export default function SettingsScreen() {
                 <Text style={styles.version}>Version 1.0.0 Pro</Text>
 
             </ScrollView>
+
+            {/* Avatar Picker Modal */}
+            <AvatarPickerModal
+                visible={isAvatarPickerOpen}
+                onClose={() => setIsAvatarPickerOpen(false)}
+                currentAvatar={currentUser?.avatarEmoji || '👤'}
+                onSelectAvatar={handleAvatarChange}
+            />
         </SafeAreaView>
     );
 }
