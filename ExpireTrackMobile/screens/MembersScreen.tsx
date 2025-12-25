@@ -132,8 +132,12 @@ export default function MembersScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Header */}
-                <Text style={styles.pageTitle}>👥 Family Hub</Text>
-                <Text style={styles.pageSubtitle}>Manage spaces, members & activity</Text>
+                <View style={styles.headerSection}>
+                    <Text style={styles.pageTitle}>Family Spaces</Text>
+                    <Text style={styles.pageSubtitle}>
+                        Share and manage your household inventory together
+                    </Text>
+                </View>
 
                 {/* Join Space Button */}
                 <TouchableOpacity
@@ -145,15 +149,15 @@ export default function MembersScreen() {
                         <Text style={styles.joinSpaceIcon}>🔗</Text>
                     </View>
                     <View style={styles.joinSpaceContent}>
-                        <Text style={styles.joinSpaceBtnText}>Join a Space</Text>
-                        <Text style={styles.joinSpaceBtnSubtext}>Scan QR code or enter invite code</Text>
+                        <Text style={styles.joinSpaceBtnText}>Join a Family Space</Text>
+                        <Text style={styles.joinSpaceBtnSubtext}>Connect with family members</Text>
                     </View>
                     <Text style={styles.joinSpaceArrow}>→</Text>
                 </TouchableOpacity>
 
                 {/* Your Spaces Section */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Your Spaces</Text>
+                    <Text style={styles.sectionTitle}>My Spaces</Text>
 
                     <View style={styles.spacesGrid}>
                         {/* My Space Card */}
@@ -306,16 +310,23 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     content: {
         padding: 16,
     },
+    headerSection: {
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border[theme] + '30',
+    },
     pageTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 32,
+        fontWeight: '800',
         color: colors.foreground[theme],
-        marginBottom: 4,
+        marginBottom: 6,
+        letterSpacing: -0.5,
     },
     pageSubtitle: {
-        fontSize: 14,
+        fontSize: 15,
         color: colors.muted[theme],
-        marginBottom: 16,
+        lineHeight: 22,
     },
     joinSpaceBtn: {
         flexDirection: 'row',
@@ -367,49 +378,68 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         marginBottom: 24,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 20,
+        fontWeight: '700',
         color: colors.foreground[theme],
-        marginBottom: 12,
+        marginBottom: 16,
+        letterSpacing: -0.3,
     },
 
     // Spaces Grid
     spacesGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
+        gap: 16,
     },
     spaceCard: {
         width: CARD_WIDTH,
         backgroundColor: colors.card[theme],
-        borderRadius: 16,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: colors.border[theme],
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1.5,
+        borderColor: colors.border[theme] + '40',
         position: 'relative',
-        minHeight: 140,
+        minHeight: 160,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
     },
     spaceCardActive: {
         borderColor: colors.primary[theme],
-        borderWidth: 2,
+        borderWidth: 2.5,
+        shadowColor: colors.primary[theme],
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 8,
+        backgroundColor: colors.primary[theme] + '08',
     },
     spaceCardHeader: {
-        marginBottom: 8,
+        marginBottom: 12,
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+        backgroundColor: colors.secondary[theme],
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     spaceCardIcon: {
-        fontSize: 32,
+        fontSize: 28,
     },
     spaceCardName: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 17,
+        fontWeight: '700',
         color: colors.foreground[theme],
         marginBottom: 4,
-        paddingRight: 30, // Space for settings button
+        paddingRight: 30,
+        letterSpacing: -0.2,
     },
     spaceCardDesc: {
-        fontSize: 12,
+        fontSize: 13,
         color: colors.muted[theme],
-        marginBottom: 8,
+        marginBottom: 12,
+        lineHeight: 18,
     },
     spaceCardFooter: {
         flexDirection: 'row',
@@ -418,7 +448,8 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         marginTop: 'auto',
     },
     productCount: {
-        fontSize: 12,
+        fontSize: 13,
+        fontWeight: '600',
         color: colors.muted[theme],
     },
     memberCount: {
@@ -427,26 +458,34 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     },
     activeBadge: {
         backgroundColor: colors.primary[theme],
-        paddingHorizontal: 8,
-        paddingVertical: 3,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
         borderRadius: 8,
+        shadowColor: colors.primary[theme],
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 2,
     },
     activeBadgeText: {
+        fontSize: 11,
+        fontWeight: '700',
         color: '#fff',
-        fontSize: 10,
-        fontWeight: '600',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
     },
     memberAvatars: {
         flexDirection: 'row',
-        marginBottom: 8,
+        marginTop: 8,
+        marginBottom: 4,
     },
     memberAvatar: {
-        width: 26,
-        height: 26,
-        borderRadius: 13,
-        backgroundColor: '#f5f3ff',
-        alignItems: 'center',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: colors.secondary[theme],
         justifyContent: 'center',
+        alignItems: 'center',
         borderWidth: 2,
         borderColor: colors.card[theme],
     },

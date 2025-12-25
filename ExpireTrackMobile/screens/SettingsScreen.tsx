@@ -552,26 +552,7 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* SUPPORT */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>{t('support')}</Text>
-
-                    <TouchableOpacity
-                        style={[styles.donateBtn, { backgroundColor: '#FF5E5B', marginBottom: 12 }]}
-                        onPress={() => Linking.openURL('https://ko-fi.com/misarb')}
-                    >
-                        <Text style={styles.donateText}>{t('donateKofi')}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.donateBtn, { backgroundColor: '#0070BA' }]}
-                        onPress={() => Linking.openURL('https://paypal.me/LBoulbalah')}
-                    >
-                        <Text style={[styles.donateText, { color: '#fff' }]}>{t('donatePaypal')}</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={styles.version}>Version 1.0.0</Text>
+                <Text style={styles.version}>Version 1.0.0 Pro</Text>
 
             </ScrollView>
         </SafeAreaView>
@@ -643,11 +624,6 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     },
     avatarText: {
         fontSize: 24,
-    },
-    accountName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.foreground[theme],
     },
     badge: {
         paddingHorizontal: 8,
