@@ -43,6 +43,7 @@ export interface Product {
     shelfLifeDays?: number;
     openedDate?: string; // When it was opened
     notifyTiming?: number; // Custom notification timing (days before)
+    criticalDays?: number; // Days before expiry to mark as "expiring soon" (default: 3)
 
     createdAt: string;
     updatedAt: string;

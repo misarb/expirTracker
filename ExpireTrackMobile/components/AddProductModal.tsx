@@ -56,6 +56,8 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
     const [isRecurring, setIsRecurring] = useState(false);
     const [recurringDays, setRecurringDays] = useState('7');
     const [notifyTiming, setNotifyTiming] = useState('');
+    const [criticalDays, setCriticalDays] = useState('3'); // Days before expiry to mark as "expiring soon"
+    const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null); // For sub-location expansion
 
     // Scanner State
     const [showScanner, setShowScanner] = useState(false);
@@ -107,6 +109,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                 setIsRecurring(editingProduct.isRecurring || false);
                 setRecurringDays(editingProduct.recurringDays?.toString() || '7');
                 setNotifyTiming(editingProduct.notifyTiming?.toString() || '');
+                setCriticalDays(editingProduct.criticalDays?.toString() || '3');
             } else {
                 // New Product defaults
                 setName('');
@@ -122,7 +125,9 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                 setIsRecurring(false);
                 setRecurringDays('7');
                 setNotifyTiming('');
+                setCriticalDays('3'); // Default 3 days
             }
+            setExpandedLocationId(null); // Reset location expansion
         }
     }, [visible, editingProduct]);
 
@@ -241,6 +246,7 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
             isRecurring,
             recurringDays: isRecurring && recurringDays ? parseInt(recurringDays) : undefined,
             notifyTiming: notifyTiming ? parseInt(notifyTiming) : undefined,
+            criticalDays: criticalDays ? parseInt(criticalDays) : 3,
         };
 
         if (editingProduct) {
@@ -304,20 +310,91 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                                 ) : null}
                             </View>
 
-                            {/* Space */}
-
+                            {/* Location with expandable sub-locations */}
                             <View style={styles.field}>
                                 <Text style={styles.label}>Location</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                                    {spaceLocations.map(loc => (
-                                        <TouchableOpacity
-                                            key={loc.id}
-                                            style={[styles.chip, locationId === loc.id && styles.chipActive]}
-                                            onPress={() => setLocationId(loc.id)}
-                                        >
-                                            <Text style={{ fontSize: 12 }}>{loc.icon} {loc.name}</Text>
-                                        </TouchableOpacity>
-                                    ))}
+                                    {(() => {
+                                        // Organize locations hierarchically
+                                        const parentLocations = spaceLocations.filter((loc: Location) => !loc.parentId);
+                                        const allChips: JSX.Element[] = [];
+
+                                        parentLocations.forEach((parent: Location) => {
+                                            const children = spaceLocations.filter((loc: Location) => loc.parentId === parent.id);
+                                            const hasChildren = children.length > 0;
+                                            const isExpanded = expandedLocationId === parent.id;
+                                            const isParentActive = locationId === parent.id;
+
+                                            // Add parent chip (with expand button if has children)
+                                            allChips.push(
+                                                <TouchableOpacity
+                                                    key={parent.id}
+                                                    style={[
+                                                        styles.locationChip,
+                                                        styles.parentChip,
+                                                        isParentActive && styles.locationChipActive
+                                                    ]}
+                                                    onPress={() => {
+                                                        setLocationId(parent.id);
+                                                        if (hasChildren) {
+                                                            setExpandedLocationId(isExpanded ? null : parent.id);
+                                                        }
+                                                    }}
+                                                >
+                                                    <Text style={styles.locationChipIcon}>{parent.icon}</Text>
+                                                    <Text style={[
+                                                        styles.locationChipText,
+                                                        isParentActive && styles.locationChipTextActive
+                                                    ]}>
+                                                        {parent.name}
+                                                    </Text>
+                                                    {hasChildren && (
+                                                        <Text style={styles.expandIcon}>
+                                                            {isExpanded ? '▲' : '▼'}
+                                                        </Text>
+                                                    )}
+                                                    {isParentActive && !hasChildren && (
+                                                        <Text style={styles.checkIcon}>✓</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            );
+
+                                            // Add children if expanded
+                                            if (hasChildren && isExpanded) {
+                                                children.forEach((child: Location) => {
+                                                    const isChildActive = locationId === child.id;
+                                                    allChips.push(
+                                                        <TouchableOpacity
+                                                            key={child.id}
+                                                            style={[
+                                                                styles.locationChip,
+                                                                styles.childChip,
+                                                                isChildActive && styles.locationChipActive
+                                                            ]}
+                                                            onPress={() => setLocationId(child.id)}
+                                                        >
+                                                            <Text style={styles.childConnector}>└</Text>
+                                                            <Text style={[styles.locationChipIcon, { fontSize: 14 }]}>
+                                                                {child.icon}
+                                                            </Text>
+                                                            <Text style={[
+                                                                styles.locationChipText,
+                                                                styles.childChipText,
+                                                                isChildActive && styles.locationChipTextActive
+                                                            ]}>
+                                                                {child.name}
+                                                            </Text>
+                                                            {isChildActive && (
+                                                                <Text style={styles.checkIcon}>✓</Text>
+                                                            )}
+                                                        </TouchableOpacity>
+                                                    );
+                                                });
+                                            }
+                                        });
+
+                                        return allChips;
+                                    })()}
                                 </ScrollView>
                             </View>
 
@@ -383,6 +460,25 @@ export default function AddProductModal({ visible, onClose, editingProduct }: Ad
                                     </View>
                                 )}
                             </View>
+
+                            {/* Critical Days - when to mark as "expiring soon" */}
+                            {hasExpirationDate && (
+                                <View style={styles.field}>
+                                    <Text style={styles.label}>Alert Days Before Expiry</Text>
+                                    <View style={styles.criticalDaysRow}>
+                                        <TextInput
+                                            style={[styles.input, { flex: 1 }]}
+                                            value={criticalDays}
+                                            onChangeText={setCriticalDays}
+                                            keyboardType="numeric"
+                                            placeholder="3"
+                                            placeholderTextColor="#999"
+                                        />
+                                        <Text style={styles.criticalDaysHint}>days</Text>
+                                    </View>
+                                    <Text style={styles.helpText}>Product will show as "expiring soon" this many days before expiry</Text>
+                                </View>
+                            )}
 
                             {/* Purchase Date */}
                             <View style={styles.field}>
@@ -609,5 +705,86 @@ const getStyles = (theme: 'light' | 'dark', bottomInset: number = 0) => StyleShe
     saveText: {
         fontWeight: 'bold',
         color: '#fff',
+    },
+    criticalDaysRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    criticalDaysHint: {
+        fontSize: 14,
+        color: colors.muted[theme],
+        marginLeft: 8,
+    },
+    helpText: {
+        fontSize: 12,
+        color: colors.muted[theme],
+        marginTop: 4,
+    },
+    // Location chip styles for hierarchical picker
+    locationChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 22,
+        backgroundColor: colors.secondary[theme],
+        marginRight: 8,
+        borderWidth: 2,
+        borderColor: 'transparent',
+        minHeight: 40,
+    },
+    parentChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 11,
+        borderWidth: 2,
+        borderColor: colors.border[theme],
+        backgroundColor: colors.card[theme],
+    },
+    locationChipActive: {
+        backgroundColor: colors.primary[theme] + '15',
+        borderColor: colors.primary[theme],
+    },
+    locationChipIcon: {
+        fontSize: 16,
+        marginRight: 7,
+    },
+    locationChipText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: colors.foreground[theme],
+    },
+    locationChipTextActive: {
+        color: colors.primary[theme],
+        fontWeight: '700',
+    },
+    childChip: {
+        backgroundColor: colors.muted[theme] + '12',
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        borderWidth: 1,
+        borderColor: colors.border[theme] + '40',
+    },
+    childChipText: {
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    childConnector: {
+        fontSize: 12,
+        marginRight: 4,
+        color: colors.muted[theme],
+        opacity: 0.5,
+    },
+    expandIcon: {
+        fontSize: 10,
+        marginLeft: 8,
+        color: colors.muted[theme],
+        fontWeight: '600',
+    },
+    checkIcon: {
+        fontSize: 12,
+        marginLeft: 6,
+        color: colors.primary[theme],
+        fontWeight: '700',
     },
 });

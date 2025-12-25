@@ -17,7 +17,6 @@ import * as Clipboard from 'expo-clipboard';
 import { Svg, Path } from 'react-native-svg';
 import { rescheduleAllNotifications, cancelAllNotifications, registerForPushNotificationsAsync, sendTestNotification } from '../lib/notifications';
 import AvatarPickerModal from '../components/AvatarPickerModal';
-import { useSpaceStore } from '../store/spaceStore';
 
 // Icons
 const ChevronRight = ({ color = "#ccc" }: any) => (
@@ -88,7 +87,7 @@ export default function SettingsScreen() {
 
                 Alert.alert(
                     "Notifications Enabled",
-                    `You will be notified ${currentTimings.join(', ')} days before expiry. You can customize this below.`
+                    `You will be notified ${currentTimings.join(', ')} days before expiry.You can customize this below.`
                 );
             } else {
                 setNotificationsEnabled(false);
@@ -336,12 +335,15 @@ export default function SettingsScreen() {
 
     const handleAvatarChange = async (emoji: string) => {
         try {
-            const { updateAvatarEmoji } = useUserStore.getState();
+            // Optimistic UI update
+            const { updateAvatarEmoji, currentUser } = useUserStore.getState();
+            if (currentUser) {
+                useUserStore.setState({
+                    currentUser: { ...currentUser, avatarEmoji: emoji }
+                });
+            }
+            // Sync to database
             await updateAvatarEmoji(emoji);
-
-            // Refresh spaces to update member avatars
-            const { fetchSpaces } = useSpaceStore.getState();
-            await fetchSpaces();
         } catch (error) {
             console.error('Avatar update error:', error);
             Alert.alert('Error', 'Failed to update avatar');
@@ -653,6 +655,11 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     },
     avatarText: {
         fontSize: 24,
+    },
+    accountName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.foreground[theme],
     },
     badge: {
         paddingHorizontal: 8,

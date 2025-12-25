@@ -49,8 +49,7 @@ interface SpaceStore {
     // Membership & Invites
     joinSpaceWithCode: (code: string) => Promise<{ success: boolean; error?: string; space?: Space }>;
     leaveSpace: (spaceId: string) => Promise<void>;
-    removeMember: (spaceId: string, userId: string) => Promise<{ success: boolean; error?: string }>;
-    transferOwnership: (spaceId: string, newOwnerId: string) => Promise<{ success: boolean; error?: string }>;
+    removeMember: (spaceId: string, userId: string) => Promise<void>;
 
     // Invites
     createInvite: (spaceId: string, maxUses?: number) => Promise<Invite | null>;
@@ -62,10 +61,6 @@ interface SpaceStore {
     logActivity: (spaceId: string, type: ActivityType, payload: Activity['payload']) => Promise<void>;
     fetchActivities: (spaceId: string) => Promise<void>;
     getSpaceActivities: (spaceId: string) => Activity[];
-
-    // Realtime subscriptions
-    subscribeToProfileUpdates: () => void;
-    unsubscribeFromProfileUpdates: () => void;
 
     // Getters
     getCurrentSpace: () => Space | null;
@@ -200,40 +195,6 @@ export const useSpaceStore = create<SpaceStore>()(
                 }
             },
 
-            // Realtime subscriptions
-            subscribeToProfileUpdates: () => {
-                console.log('🔔 [SpaceStore] Setting up profile updates subscription');
-
-                const subscription = supabase
-                    .channel('profile_changes')
-                    .on('postgres_changes',
-                        {
-                            event: 'UPDATE',
-                            schema: 'public',
-                            table: 'profiles'
-                        },
-                        (payload) => {
-                            console.log('🔔 [SpaceStore] Profile updated:', payload.new);
-                            // Refresh all space data to update member profiles
-                            get().fetchSpaces();
-                        }
-                    )
-                    .subscribe();
-
-                // Store subscription reference for cleanup
-                (get() as any)._profileSubscription = subscription;
-            },
-
-            unsubscribeFromProfileUpdates: () => {
-                const subscription = (get() as any)._profileSubscription;
-                if (subscription) {
-                    console.log('🔕 [SpaceStore] Unsubscribing from profile updates');
-                    supabase.removeChannel(subscription);
-                    delete (get() as any)._profileSubscription;
-                }
-            },
-
-            // === HELPERS ===
             initializeMySpace: () => {
                 // Done via Supabase trigger on first login
                 // This is now a legacy no-op to prevent UI crashes
@@ -422,156 +383,25 @@ export const useSpaceStore = create<SpaceStore>()(
 
             leaveSpace: async (spaceId: string) => {
                 const userId = useUserStore.getState().getUserId();
-                console.log('🚪 [SpaceStore] Leaving space:', spaceId);
+                if (!userId) return;
 
-                if (!userId) {
-                    console.error('❌ [SpaceStore] No user ID');
-                    return;
-                }
+                await supabase
+                    .from('members')
+                    .update({ status: 'LEFT' })
+                    .eq('space_id', spaceId)
+                    .eq('profile_id', userId);
 
-                try {
-                    const { error } = await supabase
-                        .from('members')
-                        .update({ status: 'LEFT' })
-                        .eq('space_id', spaceId)
-                        .eq('profile_id', userId);
-
-                    if (error) {
-                        console.error('❌ [SpaceStore] Leave space error:', error);
-                        return;
-                    }
-
-                    console.log('✅ [SpaceStore] Successfully left space');
-
-                    // Switch to My Space if we were in the space we just left
-                    if (get().currentSpaceId === spaceId) {
-                        set({ currentSpaceId: MY_SPACE_ID });
-                    }
-
-                    // Refresh spaces list
-                    await get().fetchSpaces();
-                } catch (err) {
-                    console.error('❌ [SpaceStore] Unexpected leave error:', err);
-                }
+                await get().fetchSpaces();
             },
 
             removeMember: async (spaceId: string, targetUserId: string) => {
-                const userId = useUserStore.getState().getUserId();
-                console.log('🚫 [SpaceStore] Removing member:', targetUserId, 'from space:', spaceId);
+                await supabase
+                    .from('members')
+                    .update({ status: 'REMOVED' })
+                    .eq('space_id', spaceId)
+                    .eq('profile_id', targetUserId);
 
-                if (!userId) {
-                    console.error('❌ [SpaceStore] No user ID');
-                    return { success: false, error: 'Not authenticated' };
-                }
-
-                // Check if user is owner
-                const membership = get().memberships.find(m => m.spaceId === spaceId && m.userId === userId);
-                if (!membership || membership.role !== 'OWNER') {
-                    console.error('❌ [SpaceStore] Only owners can remove members');
-                    return { success: false, error: 'Only space owners can remove members' };
-                }
-
-                // Cannot remove yourself
-                if (targetUserId === userId) {
-                    console.error('❌ [SpaceStore] Cannot remove yourself');
-                    return { success: false, error: 'Use "Leave Space" to leave this space' };
-                }
-
-                try {
-                    const { error } = await supabase
-                        .from('members')
-                        .update({ status: 'REMOVED' })
-                        .eq('space_id', spaceId)
-                        .eq('profile_id', targetUserId);
-
-                    if (error) {
-                        console.error('❌ [SpaceStore] Remove member error:', error);
-                        return { success: false, error: error.message };
-                    }
-
-                    console.log('✅ [SpaceStore] Successfully removed member');
-                    await get().fetchSpaces();
-                    return { success: true };
-                } catch (err: any) {
-                    console.error('❌ [SpaceStore] Unexpected remove error:', err);
-                    return { success: false, error: err.message };
-                }
-            },
-
-            transferOwnership: async (spaceId: string, newOwnerId: string) => {
-                const userId = useUserStore.getState().getUserId();
-                console.log('👑 [SpaceStore] Transferring ownership to:', newOwnerId);
-
-                if (!userId) {
-                    console.error('❌ [SpaceStore] No user ID');
-                    return { success: false, error: 'Not authenticated' };
-                }
-
-                // Check if user is current owner
-                const membership = get().memberships.find(m => m.spaceId === spaceId && m.userId === userId);
-                if (!membership || membership.role !== 'OWNER') {
-                    console.error('❌ [SpaceStore] Only current owner can transfer ownership');
-                    return { success: false, error: 'Only the current owner can transfer ownership' };
-                }
-
-                // Cannot transfer to yourself
-                if (newOwnerId === userId) {
-                    console.error('❌ [SpaceStore] Cannot transfer to yourself');
-                    return { success: false, error: 'You are already the owner' };
-                }
-
-                try {
-                    // Update old owner to member
-                    const { error: oldOwnerError } = await supabase
-                        .from('members')
-                        .update({ role: 'MEMBER' })
-                        .eq('space_id', spaceId)
-                        .eq('profile_id', userId);
-
-                    if (oldOwnerError) {
-                        console.error('❌ [SpaceStore] Error updating old owner:', oldOwnerError);
-                        return { success: false, error: oldOwnerError.message };
-                    }
-
-                    // Update new owner
-                    const { error: newOwnerError } = await supabase
-                        .from('members')
-                        .update({ role: 'OWNER' })
-                        .eq('space_id', spaceId)
-                        .eq('profile_id', newOwnerId);
-
-                    if (newOwnerError) {
-                        console.error('❌ [SpaceStore] Error updating new owner:', newOwnerError);
-                        // Try to rollback old owner
-                        await supabase
-                            .from('members')
-                            .update({ role: 'OWNER' })
-                            .eq('space_id', spaceId)
-                            .eq('profile_id', userId);
-                        return { success: false, error: newOwnerError.message };
-                    }
-
-                    // Update space createdBy field
-                    const { error: spaceUpdateError } = await supabase
-                        .from('spaces')
-                        .update({ created_by: newOwnerId })
-                        .eq('id', spaceId);
-
-                    if (spaceUpdateError) {
-                        console.error('❌ [SpaceStore] Error updating space createdBy:', spaceUpdateError);
-                        // Rollback membership changes
-                        await supabase.from('members').update({ role: 'MEMBER' }).eq('space_id', spaceId).eq('profile_id', newOwnerId);
-                        await supabase.from('members').update({ role: 'OWNER' }).eq('space_id', spaceId).eq('profile_id', userId);
-                        return { success: false, error: spaceUpdateError.message };
-                    }
-
-                    console.log('✅ [SpaceStore] Successfully transferred ownership');
-                    await get().fetchSpaces();
-                    return { success: true };
-                } catch (err: any) {
-                    console.error('❌ [SpaceStore] Unexpected transfer error:', err);
-                    return { success: false, error: err.message };
-                }
+                await get().fetchSpaces();
             },
 
             createInvite: async (spaceId: string, maxUses: number = 5) => {

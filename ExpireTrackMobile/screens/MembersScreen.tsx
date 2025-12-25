@@ -8,7 +8,6 @@ import {
     useColorScheme,
     Dimensions,
     Alert,
-    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -40,7 +39,8 @@ export default function MembersScreen() {
         fetchActivities,
         currentSpaceId,
         switchSpace,
-        getMySpace
+        getMySpace,
+        fetchSpaces,
     } = useSpaceStore();
     const { getUserId } = useUserStore();
     const { getProductsBySpace } = useProductStore();
@@ -49,6 +49,11 @@ export default function MembersScreen() {
     const mySpace = getMySpace();
     const mySpaceProducts = getProductsBySpace(MY_SPACE_ID);
     const userId = getUserId();
+
+    // Refresh spaces on mount to get latest member data
+    useEffect(() => {
+        fetchSpaces();
+    }, []);
 
     // Fetch activities for all family spaces on mount
     useEffect(() => {
@@ -165,7 +170,7 @@ export default function MembersScreen() {
                         <TouchableOpacity
                             style={[styles.spaceCard, isMySpaceActive && styles.spaceCardActive]}
                             onPress={() => switchSpace(MY_SPACE_ID)}
-                            activeOpacity={0.7}
+                            activeOpacity={0.8}
                         >
                             <View style={styles.spaceCardHeader}>
                                 <Text style={styles.spaceCardIcon}>🏠</Text>
@@ -395,38 +400,22 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     spaceCard: {
         width: CARD_WIDTH,
         backgroundColor: colors.card[theme],
-        borderRadius: 16,
-        padding: 18,
-        borderWidth: 1.5,
+        borderRadius: 14,
+        padding: 16,
+        borderWidth: 1,
         borderColor: colors.border[theme],
-        position: 'relative',
-        minHeight: 160,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 2,
-            },
-        }),
+        minHeight: 150,
+        overflow: 'hidden',
     },
     spaceCardActive: {
         borderColor: colors.primary[theme],
         borderWidth: 2,
-        ...Platform.select({
-            android: {
-                elevation: 4,
-            },
-        }),
     },
     spaceCardHeader: {
-        marginBottom: 12,
-        width: 56,
-        height: 56,
-        borderRadius: 16,
+        marginBottom: 10,
+        width: 48,
+        height: 48,
+        borderRadius: 12,
         backgroundColor: colors.secondary[theme],
         justifyContent: 'center',
         alignItems: 'center',
