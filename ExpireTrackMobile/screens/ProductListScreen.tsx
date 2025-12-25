@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, useColorScheme, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useProductStore } from '../store/productStore';
@@ -31,10 +31,22 @@ export default function ProductListScreen() {
     const { products, getProductsByStatus, deleteProduct } = useProductStore();
     const { setEditingProduct, setAddModalOpen } = useUIStore();
 
+    const [searchQuery, setSearchQuery] = useState('');
+
     const filteredProducts = useMemo(() => {
-        if (status === 'all') return products;
-        return getProductsByStatus(status);
-    }, [products, status, getProductsByStatus]);
+        let filtered = status === 'all' ? products : getProductsByStatus(status);
+
+        // Apply search filter
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(p =>
+                p.name.toLowerCase().includes(query) ||
+                p.notes?.toLowerCase().includes(query)
+            );
+        }
+
+        return filtered;
+    }, [products, status, getProductsByStatus, searchQuery]);
 
     const handleEdit = (product: any) => {
         setEditingProduct(product);
@@ -79,6 +91,25 @@ export default function ProductListScreen() {
                     <Text style={styles.title}>{getTitle()}</Text>
                 </View>
                 <Text style={styles.subtitle}>{filteredProducts.length} items</Text>
+
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <Text style={styles.searchIcon}>🔍</Text>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search products..."
+                        placeholderTextColor={colors.muted[theme]}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                            <Text style={styles.clearIcon}>✕</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
 
             {/* List */}
@@ -118,4 +149,33 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     title: { fontSize: 24, fontWeight: 'bold', color: colors.foreground[theme] },
     subtitle: { fontSize: 14, color: colors.muted[theme], marginLeft: 4 },
     emptyText: { textAlign: 'center', color: colors.muted[theme], marginTop: 40 },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.card[theme],
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border[theme],
+        paddingHorizontal: 12,
+        marginTop: 12,
+        height: 48,
+    },
+    searchIcon: {
+        fontSize: 16,
+        marginRight: 8,
+        opacity: 0.6,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        color: colors.foreground[theme],
+        paddingVertical: 8,
+    },
+    clearBtn: {
+        padding: 4,
+    },
+    clearIcon: {
+        fontSize: 18,
+        color: colors.muted[theme],
+    },
 });
