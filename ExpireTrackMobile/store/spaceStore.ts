@@ -63,6 +63,10 @@ interface SpaceStore {
     fetchActivities: (spaceId: string) => Promise<void>;
     getSpaceActivities: (spaceId: string) => Activity[];
 
+    // Realtime subscriptions
+    subscribeToProfileUpdates: () => void;
+    unsubscribeFromProfileUpdates: () => void;
+
     // Getters
     getCurrentSpace: () => Space | null;
     getMySpace: () => Space | null;
@@ -196,6 +200,40 @@ export const useSpaceStore = create<SpaceStore>()(
                 }
             },
 
+            // Realtime subscriptions
+            subscribeToProfileUpdates: () => {
+                console.log('🔔 [SpaceStore] Setting up profile updates subscription');
+
+                const subscription = supabase
+                    .channel('profile_changes')
+                    .on('postgres_changes',
+                        {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'profiles'
+                        },
+                        (payload) => {
+                            console.log('🔔 [SpaceStore] Profile updated:', payload.new);
+                            // Refresh all space data to update member profiles
+                            get().fetchSpaces();
+                        }
+                    )
+                    .subscribe();
+
+                // Store subscription reference for cleanup
+                (get() as any)._profileSubscription = subscription;
+            },
+
+            unsubscribeFromProfileUpdates: () => {
+                const subscription = (get() as any)._profileSubscription;
+                if (subscription) {
+                    console.log('🔕 [SpaceStore] Unsubscribing from profile updates');
+                    supabase.removeChannel(subscription);
+                    delete (get() as any)._profileSubscription;
+                }
+            },
+
+            // === HELPERS ===
             initializeMySpace: () => {
                 // Done via Supabase trigger on first login
                 // This is now a legacy no-op to prevent UI crashes
