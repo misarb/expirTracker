@@ -513,8 +513,22 @@ export const useSpaceStore = create<SpaceStore>()(
                         return { success: false, error: newOwnerError.message };
                     }
 
+                    // Update space createdBy field
+                    const { error: spaceUpdateError } = await supabase
+                        .from('spaces')
+                        .update({ created_by: newOwnerId })
+                        .eq('id', spaceId);
+
+                    if (spaceUpdateError) {
+                        console.error('❌ [SpaceStore] Error updating space createdBy:', spaceUpdateError);
+                        // Rollback membership changes
+                        await supabase.from('members').update({ role: 'MEMBER' }).eq('space_id', spaceId).eq('profile_id', newOwnerId);
+                        await supabase.from('members').update({ role: 'OWNER' }).eq('space_id', spaceId).eq('profile_id', userId);
+                        return { success: false, error: spaceUpdateError.message };
+                    }
+
                     console.log('✅ [SpaceStore] Successfully transferred ownership');
-                    await get().fetchSpaces();
+                    await get().fetchUserSpaces();
                     return { success: true };
                 } catch (err: any) {
                     console.error('❌ [SpaceStore] Unexpected transfer error:', err);

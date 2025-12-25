@@ -230,9 +230,17 @@ export default function FamilySpaceSettingsScreen() {
                                     {member.displayName}
                                     {member.id === userId && ' (You)'}
                                 </Text>
-                                {member.id === space.createdBy && (
-                                    <Text style={styles.memberRole}>Owner</Text>
-                                )}
+                                <View style={styles.memberRoleContainer}>
+                                    {member.id === space.createdBy ? (
+                                        <View style={[styles.roleBadge, styles.roleBadgeOwner]}>
+                                            <Text style={styles.roleBadgeText}>👑 Owner</Text>
+                                        </View>
+                                    ) : (
+                                        <View style={[styles.roleBadge, styles.roleBadgeMember]}>
+                                            <Text style={[styles.roleBadgeText, { color: '#6b7280' }]}>Member</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
                             {isSpaceOwner && member.id !== userId && (
                                 <View style={styles.memberActions}>
@@ -531,6 +539,32 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     },
     memberInfo: {
         flex: 1,
+        marginLeft: 12,
+    },
+    memberRoleContainer: {
+        marginTop: 4,
+    },
+    roleBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    roleBadgeOwner: {
+        backgroundColor: '#fef3c7',
+        borderWidth: 1,
+        borderColor: '#fbbf24',
+    },
+    roleBadgeMember: {
+        backgroundColor: '#f3f4f6',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    roleBadgeText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#92400e',
+        letterSpacing: 0.3,
     },
     memberName: {
         fontSize: 15,
