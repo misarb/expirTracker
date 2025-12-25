@@ -49,7 +49,8 @@ interface SpaceStore {
     // Membership & Invites
     joinSpaceWithCode: (code: string) => Promise<{ success: boolean; error?: string; space?: Space }>;
     leaveSpace: (spaceId: string) => Promise<void>;
-    removeMember: (spaceId: string, userId: string) => Promise<void>;
+    removeMember: (spaceId: string, userId: string) => Promise<{ success: boolean; error?: string }>;
+    transferOwnership: (spaceId: string, newOwnerId: string) => Promise<{ success: boolean; error?: string }>;
 
     // Invites
     createInvite: (spaceId: string, maxUses?: number) => Promise<Invite | null>;
@@ -417,13 +418,108 @@ export const useSpaceStore = create<SpaceStore>()(
             },
 
             removeMember: async (spaceId: string, targetUserId: string) => {
-                await supabase
-                    .from('members')
-                    .update({ status: 'REMOVED' })
-                    .eq('space_id', spaceId)
-                    .eq('profile_id', targetUserId);
+                const userId = useUserStore.getState().getUserId();
+                console.log('🚫 [SpaceStore] Removing member:', targetUserId, 'from space:', spaceId);
 
-                await get().fetchSpaces();
+                if (!userId) {
+                    console.error('❌ [SpaceStore] No user ID');
+                    return { success: false, error: 'Not authenticated' };
+                }
+
+                // Check if user is owner
+                const membership = get().memberships.find(m => m.spaceId === spaceId && m.userId === userId);
+                if (!membership || membership.role !== 'OWNER') {
+                    console.error('❌ [SpaceStore] Only owners can remove members');
+                    return { success: false, error: 'Only space owners can remove members' };
+                }
+
+                // Cannot remove yourself
+                if (targetUserId === userId) {
+                    console.error('❌ [SpaceStore] Cannot remove yourself');
+                    return { success: false, error: 'Use "Leave Space" to leave this space' };
+                }
+
+                try {
+                    const { error } = await supabase
+                        .from('members')
+                        .update({ status: 'REMOVED' })
+                        .eq('space_id', spaceId)
+                        .eq('profile_id', targetUserId);
+
+                    if (error) {
+                        console.error('❌ [SpaceStore] Remove member error:', error);
+                        return { success: false, error: error.message };
+                    }
+
+                    console.log('✅ [SpaceStore] Successfully removed member');
+                    await get().fetchSpaces();
+                    return { success: true };
+                } catch (err: any) {
+                    console.error('❌ [SpaceStore] Unexpected remove error:', err);
+                    return { success: false, error: err.message };
+                }
+            },
+
+            transferOwnership: async (spaceId: string, newOwnerId: string) => {
+                const userId = useUserStore.getState().getUserId();
+                console.log('👑 [SpaceStore] Transferring ownership to:', newOwnerId);
+
+                if (!userId) {
+                    console.error('❌ [SpaceStore] No user ID');
+                    return { success: false, error: 'Not authenticated' };
+                }
+
+                // Check if user is current owner
+                const membership = get().memberships.find(m => m.spaceId === spaceId && m.userId === userId);
+                if (!membership || membership.role !== 'OWNER') {
+                    console.error('❌ [SpaceStore] Only current owner can transfer ownership');
+                    return { success: false, error: 'Only the current owner can transfer ownership' };
+                }
+
+                // Cannot transfer to yourself
+                if (newOwnerId === userId) {
+                    console.error('❌ [SpaceStore] Cannot transfer to yourself');
+                    return { success: false, error: 'You are already the owner' };
+                }
+
+                try {
+                    // Update old owner to member
+                    const { error: oldOwnerError } = await supabase
+                        .from('members')
+                        .update({ role: 'MEMBER' })
+                        .eq('space_id', spaceId)
+                        .eq('profile_id', userId);
+
+                    if (oldOwnerError) {
+                        console.error('❌ [SpaceStore] Error updating old owner:', oldOwnerError);
+                        return { success: false, error: oldOwnerError.message };
+                    }
+
+                    // Update new owner
+                    const { error: newOwnerError } = await supabase
+                        .from('members')
+                        .update({ role: 'OWNER' })
+                        .eq('space_id', spaceId)
+                        .eq('profile_id', newOwnerId);
+
+                    if (newOwnerError) {
+                        console.error('❌ [SpaceStore] Error updating new owner:', newOwnerError);
+                        // Try to rollback old owner
+                        await supabase
+                            .from('members')
+                            .update({ role: 'OWNER' })
+                            .eq('space_id', spaceId)
+                            .eq('profile_id', userId);
+                        return { success: false, error: newOwnerError.message };
+                    }
+
+                    console.log('✅ [SpaceStore] Successfully transferred ownership');
+                    await get().fetchSpaces();
+                    return { success: true };
+                } catch (err: any) {
+                    console.error('❌ [SpaceStore] Unexpected transfer error:', err);
+                    return { success: false, error: err.message };
+                }
             },
 
             createInvite: async (spaceId: string, maxUses: number = 5) => {

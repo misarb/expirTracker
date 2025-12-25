@@ -38,6 +38,7 @@ export default function FamilySpaceSettingsScreen() {
         leaveSpace,
         deleteSpace,
         removeMember,
+        transferOwnership,
         isSpaceNotificationEnabled,
         setSpaceNotificationEnabled,
         getSpaceActivities,
@@ -123,7 +124,7 @@ export default function FamilySpaceSettingsScreen() {
         safeGoBack();
     };
 
-    const handleRemoveMember = (memberId: string, memberName: string) => {
+    const handleRemoveMember = async (memberId: string, memberName: string) => {
         if (memberId === userId) return; // Can't remove yourself
 
         Alert.alert(
@@ -134,7 +135,39 @@ export default function FamilySpaceSettingsScreen() {
                 {
                     text: 'Remove',
                     style: 'destructive',
-                    onPress: () => removeMember(spaceId, memberId)
+                    onPress: async () => {
+                        const result = await removeMember(spaceId, memberId);
+                        if (!result.success) {
+                            Alert.alert('Error', result.error || 'Failed to remove member');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleTransferOwnership = async (memberId: string, memberName: string) => {
+        if (memberId === userId) return; // Can't transfer to yourself
+
+        Alert.alert(
+            'Transfer Ownership',
+            `Transfer ownership to ${memberName}? You will become a regular member and lose owner privileges.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Transfer',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const result = await transferOwnership(spaceId, memberId);
+                        if (result.success) {
+                            Alert.alert(
+                                'Ownership Transferred',
+                                `${memberName} is now the owner of this space.`
+                            );
+                        } else {
+                            Alert.alert('Error', result.error || 'Failed to transfer ownership');
+                        }
+                    }
                 }
             ]
         );
@@ -202,12 +235,22 @@ export default function FamilySpaceSettingsScreen() {
                                 )}
                             </View>
                             {isSpaceOwner && member.id !== userId && (
-                                <TouchableOpacity
-                                    style={styles.removeMemberBtn}
-                                    onPress={() => handleRemoveMember(member.id, member.displayName)}
-                                >
-                                    <TrashIcon size={16} color="#ef4444" />
-                                </TouchableOpacity>
+                                <View style={styles.memberActions}>
+                                    <TouchableOpacity
+                                        style={styles.makeOwnerBtn}
+                                        onPress={() => handleTransferOwnership(member.id, member.displayName)}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Text style={styles.makeOwnerIcon}>👑</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.removeMemberBtn}
+                                        onPress={() => handleRemoveMember(member.id, member.displayName)}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <TrashIcon size={16} color="#ef4444" />
+                                    </TouchableOpacity>
+                                </View>
                             )}
                         </View>
                     ))}
