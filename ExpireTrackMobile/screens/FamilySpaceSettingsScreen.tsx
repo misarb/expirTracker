@@ -237,18 +237,20 @@ export default function FamilySpaceSettingsScreen() {
                             {isSpaceOwner && member.id !== userId && (
                                 <View style={styles.memberActions}>
                                     <TouchableOpacity
-                                        style={styles.makeOwnerBtn}
+                                        style={styles.transferOwnerBtn}
                                         onPress={() => handleTransferOwnership(member.id, member.displayName)}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        activeOpacity={0.8}
                                     >
-                                        <Text style={styles.makeOwnerIcon}>👑</Text>
+                                        <Text style={styles.transferOwnerIcon}>👑</Text>
+                                        <Text style={styles.transferOwnerText}>Transfer</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={styles.removeMemberBtn}
                                         onPress={() => handleRemoveMember(member.id, member.displayName)}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        activeOpacity={0.8}
                                     >
-                                        <TrashIcon size={16} color="#ef4444" />
+                                        <TrashIcon size={14} color="#fff" />
+                                        <Text style={styles.removeMemberText}>Remove</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -539,8 +541,44 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         fontSize: 12,
         color: colors.primary[theme],
     },
+    memberActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    transferOwnerBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.primary[theme] + '15',
+        borderWidth: 1.5,
+        borderColor: colors.primary[theme],
+    },
+    transferOwnerIcon: {
+        fontSize: 14,
+    },
+    transferOwnerText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.primary[theme],
+    },
     removeMemberBtn: {
-        padding: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#ef4444',
+        borderWidth: 1.5,
+        borderColor: '#dc2626',
+    },
+    removeMemberText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#fff',
     },
 
     settingRow: {

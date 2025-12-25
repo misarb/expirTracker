@@ -15,6 +15,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { useSpaceStore } from '../store/spaceStore';
 import { Invite } from '../types/spaces';
 import { colors } from '../theme/colors';
+import QRCodeModal from './QRCodeModal';
 
 interface InviteModalProps {
     visible: boolean;
@@ -26,7 +27,8 @@ export default function InviteModal({ visible, onClose, spaceId }: InviteModalPr
     const [invite, setInvite] = useState<Invite | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [showQr, setShowQr] = useState(false);
+    const [showQr, setShowQr] = useState(false); // Controls QR modal visibility
+    const [showQrModal, setShowQrModal] = useState(false); // New state for dedicated QR modal
 
     const { getActiveInvite, createInvite, regenerateInvite, getSpaceById, getMemberCount } = useSpaceStore();
     const space = getSpaceById(spaceId);
@@ -164,31 +166,14 @@ export default function InviteModal({ visible, onClose, spaceId }: InviteModalPr
                                     </Text>
                                 </TouchableOpacity>
 
-                                {/* Show QR Button / QR Code */}
-                                {showQr ? (
-                                    <View style={styles.qrSection}>
-                                        <View style={styles.qrContainer}>
-                                            <QRCode
-                                                value={getQRValue()}
-                                                size={140}
-                                                color="#6366f1"
-                                                backgroundColor="#fff"
-                                            />
-                                            <Text style={styles.qrHint}>Scan to join</Text>
-                                        </View>
-                                        <TouchableOpacity onPress={() => setShowQr(false)}>
-                                            <Text style={styles.hideQrText}>Hide QR Code</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : (
-                                    <TouchableOpacity
-                                        style={styles.showQrBtn}
-                                        onPress={() => setShowQr(true)}
-                                    >
-                                        <Text style={styles.showQrIcon}>📱</Text>
-                                        <Text style={styles.showQrText}>Show QR Code</Text>
-                                    </TouchableOpacity>
-                                )}
+                                {/* Show QR Code Button */}
+                                <TouchableOpacity
+                                    style={styles.showQrBtn}
+                                    onPress={() => setShowQrModal(true)}
+                                >
+                                    <Text style={styles.showQrIcon}>📱</Text>
+                                    <Text style={styles.showQrText}>Show QR Code</Text>
+                                </TouchableOpacity>
 
                                 <View style={styles.inviteInfo}>
                                     <View style={styles.infoItem}>
@@ -248,6 +233,16 @@ export default function InviteModal({ visible, onClose, spaceId }: InviteModalPr
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* Dedicated QR Code Modal */}
+            {invite && (
+                <QRCodeModal
+                    visible={showQrModal}
+                    onClose={() => setShowQrModal(false)}
+                    qrValue={getQRValue()}
+                    title="Scan to Join Space"
+                />
+            )}
         </Modal>
     );
 }

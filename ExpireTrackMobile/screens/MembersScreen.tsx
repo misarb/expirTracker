@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     useColorScheme,
     Dimensions,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useProductStore } from '../store/productStore';
 import { colors } from '../theme/colors';
 import { Activity } from '../types/spaces';
+import JoinSpaceModal from '../components/JoinSpaceModal';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 16 padding on each side + 16 gap
@@ -27,6 +29,8 @@ export default function MembersScreen() {
     const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
     const theme = isDark ? 'dark' : 'light';
     const styles = getStyles(theme);
+
+    const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
 
     const {
         getFamilySpaces,
@@ -130,6 +134,22 @@ export default function MembersScreen() {
                 {/* Header */}
                 <Text style={styles.pageTitle}>👥 Family Hub</Text>
                 <Text style={styles.pageSubtitle}>Manage spaces, members & activity</Text>
+
+                {/* Join Space Button */}
+                <TouchableOpacity
+                    style={styles.joinSpaceBtn}
+                    onPress={() => setIsJoinModalOpen(true)}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.joinSpaceIconContainer}>
+                        <Text style={styles.joinSpaceIcon}>🔗</Text>
+                    </View>
+                    <View style={styles.joinSpaceContent}>
+                        <Text style={styles.joinSpaceBtnText}>Join a Space</Text>
+                        <Text style={styles.joinSpaceBtnSubtext}>Scan QR code or enter invite code</Text>
+                    </View>
+                    <Text style={styles.joinSpaceArrow}>→</Text>
+                </TouchableOpacity>
 
                 {/* Your Spaces Section */}
                 <View style={styles.section}>
@@ -268,6 +288,12 @@ export default function MembersScreen() {
 
                 <View style={{ height: 100 }} />
             </ScrollView>
+
+            {/* Join Space Modal */}
+            <JoinSpaceModal
+                visible={isJoinModalOpen}
+                onClose={() => setIsJoinModalOpen(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -289,7 +315,52 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     pageSubtitle: {
         fontSize: 14,
         color: colors.muted[theme],
+        marginBottom: 16,
+    },
+    joinSpaceBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.card[theme],
+        borderRadius: 16,
+        padding: 16,
         marginBottom: 24,
+        borderWidth: 2,
+        borderColor: colors.primary[theme],
+        shadowColor: colors.primary[theme],
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    joinSpaceIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: colors.primary[theme] + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+    },
+    joinSpaceIcon: {
+        fontSize: 22,
+    },
+    joinSpaceContent: {
+        flex: 1,
+    },
+    joinSpaceBtnText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.foreground[theme],
+        marginBottom: 2,
+    },
+    joinSpaceBtnSubtext: {
+        fontSize: 13,
+        color: colors.muted[theme],
+    },
+    joinSpaceArrow: {
+        fontSize: 20,
+        color: colors.primary[theme],
+        fontWeight: '600',
     },
 
     section: {
