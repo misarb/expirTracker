@@ -8,6 +8,7 @@ import {
     useColorScheme,
     Dimensions,
     Alert,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -164,7 +165,7 @@ export default function MembersScreen() {
                         <TouchableOpacity
                             style={[styles.spaceCard, isMySpaceActive && styles.spaceCardActive]}
                             onPress={() => switchSpace(MY_SPACE_ID)}
-                            activeOpacity={0.8}
+                            activeOpacity={0.7}
                         >
                             <View style={styles.spaceCardHeader}>
                                 <Text style={styles.spaceCardIcon}>🏠</Text>
@@ -394,26 +395,32 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     spaceCard: {
         width: CARD_WIDTH,
         backgroundColor: colors.card[theme],
-        borderRadius: 20,
-        padding: 20,
+        borderRadius: 16,
+        padding: 18,
         borderWidth: 1.5,
-        borderColor: colors.border[theme] + '40',
+        borderColor: colors.border[theme],
         position: 'relative',
         minHeight: 160,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 4,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
     },
     spaceCardActive: {
         borderColor: colors.primary[theme],
-        borderWidth: 2.5,
-        shadowColor: colors.primary[theme],
-        shadowOpacity: 0.2,
-        shadowRadius: 16,
-        elevation: 8,
-        backgroundColor: colors.primary[theme] + '08',
+        borderWidth: 2,
+        ...Platform.select({
+            android: {
+                elevation: 4,
+            },
+        }),
     },
     spaceCardHeader: {
         marginBottom: 12,
