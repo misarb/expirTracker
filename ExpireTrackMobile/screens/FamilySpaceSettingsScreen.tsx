@@ -19,6 +19,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useProductStore } from '../store/productStore';
 import { colors, spacing } from '../theme/colors';
 import { TrashIcon } from '../components/Icons';
+import * as Clipboard from 'expo-clipboard';
+import QRCode from 'react-native-qrcode-svg';
 import InviteModal from '../components/InviteModal';
 import DeleteSpaceModal from '../components/DeleteSpaceModal';
 
@@ -44,6 +46,8 @@ export default function FamilySpaceSettingsScreen() {
         isSpaceNotificationEnabled,
         setSpaceNotificationEnabled,
         getSpaceActivities,
+        getActiveInvite,
+        createInvite,
     } = useSpaceStore();
     const { getUserId, currentUser } = useUserStore();
     const { getProductsBySpace, fetchData } = useProductStore();
@@ -58,10 +62,13 @@ export default function FamilySpaceSettingsScreen() {
     const notificationsEnabled = isSpaceNotificationEnabled(spaceId);
 
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [activeInvite, setActiveInvite] = useState<any>(null);
+    const [loadingInvite, setLoadingInvite] = useState(false);
+    const [copied, setCopied] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch products for this space on mount
+    // Fetch products and invite code for this space on mount
     useEffect(() => {
         const loadProducts = async () => {
             setIsLoading(true);
@@ -69,7 +76,46 @@ export default function FamilySpaceSettingsScreen() {
             setIsLoading(false);
         };
         loadProducts();
-    }, [spaceId]);
+
+        // Fetch invite code if owner
+        console.log('🔍 [SpaceSettings] Is owner?', isSpaceOwner, 'SpaceId:', spaceId);
+        console.log('👤 [SpaceSettings] Current user ID:', userId);
+        console.log('👑 [SpaceSettings] Space createdBy:', space?.createdBy);
+        console.log('🔐 [SpaceSettings] Match?', userId === space?.createdBy);
+        if (isSpaceOwner) {
+            console.log('✅ [SpaceSettings] Fetching invite code for owner...');
+            fetchInviteCode();
+        } else {
+            console.log('❌ [SpaceSettings] Not owner, skipping invite fetch');
+        }
+    }, [spaceId, isSpaceOwner]);
+
+    const fetchInviteCode = async () => {
+        console.log('📨 [SpaceSettings] Starting invite fetch...');
+        setLoadingInvite(true);
+        try {
+            let invite = await getActiveInvite(spaceId);
+            console.log('📩 [SpaceSettings] Got active invite:', invite);
+            if (!invite) {
+                console.log('🆕 [SpaceSettings] No invite found, creating new one...');
+                invite = await createInvite(spaceId);
+                console.log('✨ [SpaceSettings] Created new invite:', invite);
+            }
+            setActiveInvite(invite);
+            console.log('💾 [SpaceSettings] Invite saved to state:', invite?.code);
+        } catch (error) {
+            console.error('❌ [SpaceSettings] Failed to fetch invite:', error);
+        } finally {
+            setLoadingInvite(false);
+        }
+    };
+
+    const handleCopyInviteCode = async () => {
+        if (!activeInvite) return;
+        await Clipboard.setStringAsync(activeInvite.code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     const styles = getStyles(theme);
 
@@ -230,7 +276,7 @@ export default function FamilySpaceSettingsScreen() {
                             )}
                         </View>
 
-                        {/* Invite Section (Owner only) */}
+                        {/* Invite Section - Button for owners */}
                         {isSpaceOwner && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Invite Members</Text>
@@ -240,8 +286,8 @@ export default function FamilySpaceSettingsScreen() {
                                 >
                                     <Text style={styles.inviteBtnIcon}>🔗</Text>
                                     <View style={styles.inviteBtnContent}>
-                                        <Text style={styles.inviteBtnText}>Get Invite Code</Text>
-                                        <Text style={styles.inviteBtnSubtext}>Share with family to let them join</Text>
+                                        <Text style={styles.inviteBtnText}>Get Invite Code & QR</Text>
+                                        <Text style={styles.inviteBtnSubtext}>Tap to view code and QR code</Text>
                                     </View>
                                     <Text style={styles.inviteArrow}>→</Text>
                                 </TouchableOpacity>
@@ -533,6 +579,62 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     inviteArrow: {
         fontSize: 18,
         color: colors.muted[theme],
+    },
+    inviteCodeCard: {
+        backgroundColor: colors.card[theme],
+        borderRadius: 16,
+        padding: 20,
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: colors.primary[theme],
+        borderStyle: 'dashed',
+        marginBottom: 16,
+    },
+    inviteCodeLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.muted[theme],
+        marginBottom: 8,
+        letterSpacing: 1,
+    },
+    inviteCode: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: colors.primary[theme],
+        letterSpacing: 4,
+        marginBottom: 8,
+    },
+    tapToCopy: {
+        fontSize: 13,
+        color: colors.muted[theme],
+        fontStyle: 'italic',
+    },
+    qrCodeContainer: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 16,
+        alignItems: 'center',
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: colors.border[theme],
+    },
+    qrCodeHint: {
+        fontSize: 13,
+        color: colors.muted[theme],
+        marginTop: 12,
+    },
+    inviteBtnSecondary: {
+        backgroundColor: colors.card[theme],
+        borderRadius: 12,
+        padding: 14,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.border[theme],
+    },
+    inviteBtnSecondaryText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.primary[theme],
     },
 
     memberRow: {
