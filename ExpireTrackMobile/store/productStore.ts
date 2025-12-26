@@ -457,8 +457,8 @@ export const useProductStore = create<ProductStore>()(
             getTopLevelLocations: () => get().locations.filter(l => !l.parentId),
             getChildLocations: (parentId) => get().locations.filter(l => l.parentId === parentId),
 
-            // Legacy
-            getLocationsBySpace: (spaceId) => get().locations, // Store is already filtered by space
+            // Filter locations by spaceId
+            getLocationsBySpace: (spaceId) => get().locations.filter(loc => loc.spaceId === spaceId), // Store is already filtered by space
             getTopLevelSpaces: (spaceId) => get().getTopLevelLocations(),
 
             refreshStatuses: () => {

@@ -587,9 +587,11 @@ export const useSpaceStore = create<SpaceStore>()(
             },
 
             isOwner: (spaceId: string) => {
-                return get().getUserRole(spaceId) === 'OWNER';
+                const space = get().getSpaceById(spaceId);
+                const currentUserId = useUserStore.getState().getUserId();
+                // Owner is determined by who created the space, not by membership role
+                return space?.createdBy === currentUserId;
             },
-
             hasFamilySpaces: () => {
                 return get().getFamilySpaces().length > 0;
             },

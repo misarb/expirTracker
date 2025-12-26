@@ -327,15 +327,13 @@ export default function FamilySpaceSettingsScreen() {
                                                 activeOpacity={0.8}
                                             >
                                                 <Text style={styles.transferOwnerIcon}>👑</Text>
-                                                <Text style={styles.transferOwnerText}>Transfer</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 style={styles.removeMemberBtn}
                                                 onPress={() => handleRemoveMember(member.id, member.displayName)}
                                                 activeOpacity={0.8}
                                             >
-                                                <TrashIcon size={14} color="#fff" />
-                                                <Text style={styles.removeMemberText}>Remove</Text>
+                                                <TrashIcon size={16} color="#fff" />
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -700,39 +698,27 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
         gap: 8,
     },
     transferOwnerBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: colors.primary[theme] + '15',
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: colors.primary[theme],
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     transferOwnerIcon: {
         fontSize: 14,
     },
-    transferOwnerText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: colors.primary[theme],
-    },
     removeMemberBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: '#ef4444',
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: '#dc2626',
-    },
-    removeMemberText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     settingRow: {
