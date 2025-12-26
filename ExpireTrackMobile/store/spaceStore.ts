@@ -396,17 +396,21 @@ export const useSpaceStore = create<SpaceStore>()(
             },
 
             removeMember: async (spaceId: string, targetUserId: string) => {
-                const { error } = await supabase
-                    .from('members')
-                    .update({ status: 'REMOVED' })
-                    .eq('space_id', spaceId)
-                    .eq('profile_id', targetUserId);
+                // Use the atomic RPC function to handle member removal securely
+                const { error } = await supabase.rpc('remove_member', {
+                    p_space_id: spaceId,
+                    p_target_profile_id: targetUserId
+                });
 
-                if (error) return { success: false, error: error.message };
+                if (error) {
+                    console.error('❌ [SpaceStore] removeMember error:', error);
+                    return { success: false, error: error.message };
+                }
+
+                console.log('✅ [SpaceStore] Member removed successfully:', targetUserId);
                 await get().fetchSpaces();
                 return { success: true };
             },
-
             transferOwnership: async (spaceId: string, targetUserId: string) => {
                 const userId = useUserStore.getState().getUserId();
                 if (!userId) return { success: false, error: 'Not logged in' };

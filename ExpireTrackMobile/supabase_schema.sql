@@ -174,6 +174,30 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 
+-- Function to remove members atomically
+CREATE OR REPLACE FUNCTION public.remove_member(p_space_id UUID, p_target_profile_id UUID)
+RETURNS void AS $$
+BEGIN
+    -- 1. Verify the caller is the current owner of the space
+    IF NOT EXISTS (
+        SELECT 1 FROM public.spaces 
+        WHERE id = p_space_id AND created_by = auth.uid()
+    ) THEN
+        RAISE EXCEPTION 'Only the space owner can remove members';
+    END IF;
+
+    -- 2. Prevent the owner from removing themselves
+    IF p_target_profile_id = auth.uid() THEN
+        RAISE EXCEPTION 'Owners cannot remove themselves. Transfer ownership first if you want to leave.';
+    END IF;
+
+    -- 3. Delete the membership record
+    DELETE FROM public.members 
+    WHERE space_id = p_space_id AND profile_id = p_target_profile_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+
 -- RLS POLICIES --
 
 -- Profiles: View self + members in same spaces
