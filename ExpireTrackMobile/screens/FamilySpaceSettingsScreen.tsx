@@ -276,8 +276,8 @@ export default function FamilySpaceSettingsScreen() {
                             )}
                         </View>
 
-                        {/* Invite Section - Button for owners */}
-                        {isSpaceOwner && (
+                        {/* Invite Section - Only for family spaces, not My Space */}
+                        {isSpaceOwner && spaceId !== MY_SPACE_ID && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Invite Members</Text>
                                 <TouchableOpacity

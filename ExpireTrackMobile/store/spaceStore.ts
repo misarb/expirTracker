@@ -411,30 +411,24 @@ export const useSpaceStore = create<SpaceStore>()(
                 const userId = useUserStore.getState().getUserId();
                 if (!userId) return { success: false, error: 'Not logged in' };
 
-                // 1. Demote self
-                const { error: error1 } = await supabase
-                    .from('members')
-                    .update({ role: 'MEMBER' })
-                    .eq('space_id', spaceId)
-                    .eq('profile_id', userId);
+                // Use the atomic RPC function to handle role updates and space ownership together
+                const { error } = await supabase.rpc('transfer_ownership', {
+                    p_space_id: spaceId,
+                    p_target_profile_id: targetUserId
+                });
 
-                // 2. Promote target
-                const { error: error2 } = await supabase
-                    .from('members')
-                    .update({ role: 'OWNER' })
-                    .eq('space_id', spaceId)
-                    .eq('profile_id', targetUserId);
+                if (error) {
+                    console.error('❌ [SpaceStore] transferOwnership error:', error);
+                    // Translate common Postgres errors to user-friendly messages
+                    let userError = error.message;
+                    if (error.message.includes('Only the space owner')) {
+                        userError = 'Only the space owner can transfer ownership.';
+                    }
 
-                // 3. Update space creator (owner)
-                const { error: error3 } = await supabase
-                    .from('spaces')
-                    .update({ created_by: targetUserId })
-                    .eq('id', spaceId);
-
-                if (error1 || error2 || error3) {
-                    return { success: false, error: error1?.message || error2?.message || error3?.message };
+                    return { success: false, error: userError };
                 }
 
+                console.log('✅ [SpaceStore] Ownership transferred successfully to:', targetUserId);
                 await get().fetchSpaces();
                 return { success: true };
             },

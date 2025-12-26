@@ -24,7 +24,7 @@ export default function DeleteSpaceModal({ visible, onClose, onConfirm, spaceId,
     const theme = isDark ? 'dark' : 'light';
     const styles = getStyles(theme);
 
-    const { products, getProductsBySpace } = useProductStore();
+    const { products, getProductsBySpace, getProductsByLocation, locations } = useProductStore();
     const { spaces, currentSpaceId } = useSpaceStore();
 
     const [action, setAction] = useState<'delete' | 'move-all' | 'keep-some'>('delete');
@@ -32,7 +32,18 @@ export default function DeleteSpaceModal({ visible, onClose, onConfirm, spaceId,
     const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    const productsInSpace = useMemo(() => getProductsBySpace(spaceId), [products, spaceId]);
+    // Check if spaceId is actually a location (sub-space) or a top-level space
+    const isLocation = locations.some(loc => loc.id === spaceId);
+
+    const productsInSpace = useMemo(() => {
+        if (isLocation) {
+            // It's a location/sub-space - get products by locationId
+            return getProductsByLocation(spaceId);
+        } else {
+            // It's a top-level space - get products by spaceId
+            return getProductsBySpace(spaceId);
+        }
+    }, [products, spaceId, isLocation]);
     const otherSpaces = [
         { id: MY_SPACE_ID, name: 'My Personal Space', icon: '👤' },
         ...spaces.map(s => ({ id: s.id, name: s.name, icon: s.icon || '🏠' }))
@@ -46,6 +57,8 @@ export default function DeleteSpaceModal({ visible, onClose, onConfirm, spaceId,
             setIsDropdownOpen(false);
         }
     }, [visible]);
+
+
 
     const handleConfirm = () => {
         if ((action === 'move-all' || action === 'keep-some') && !targetSpaceId) {

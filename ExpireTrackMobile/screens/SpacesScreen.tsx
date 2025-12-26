@@ -51,7 +51,7 @@ export default function SpacesScreen() {
         getLocationsBySpace,
         deleteLocation
     } = useProductStore();
-    const { currentSpaceId } = useSpaceStore();
+    const { spaces, currentSpaceId } = useSpaceStore();
     const { setAddModalOpen, setDefaultLocationId, setEditingProduct, setAddSpaceModalOpen, setAddSpaceParentId } = useUIStore();
     const { theme: themeSetting } = useSettingsStore();
 
@@ -277,8 +277,16 @@ export default function SpacesScreen() {
                 onClose={() => { setIsDeleteModalOpen(false); setDeleteSpaceId(null); }}
                 onConfirm={handleConfirmDelete}
                 spaceId={deleteSpaceId || ''}
-                spaceName={locations.find(l => l.id === deleteSpaceId)?.name || ''}
-                spaceIcon={locations.find(l => l.id === deleteSpaceId)?.icon || '📁'}
+                spaceName={
+                    spaces.find(s => s.id === deleteSpaceId)?.name ||
+                    locations.find(l => l.id === deleteSpaceId)?.name ||
+                    ''
+                }
+                spaceIcon={
+                    spaces.find(s => s.id === deleteSpaceId)?.icon ||
+                    locations.find(l => l.id === deleteSpaceId)?.icon ||
+                    '📁'
+                }
             />
         </SafeAreaView>
     );
