@@ -202,7 +202,12 @@ export const useProductStore = create<ProductStore>()(
                     .select()
                     .single();
 
-                if (error || !product) return null;
+                if (error || !product) {
+                    console.error('❌ [ProductStore] Failed to add product:', error);
+                    console.log('Product data that failed:', data);
+                    console.log('User ID:', useUserStore.getState().getUserId());
+                    return null;
+                }
 
                 const newProduct: Product = {
                     id: product.id,
