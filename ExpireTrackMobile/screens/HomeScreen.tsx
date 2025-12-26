@@ -14,6 +14,7 @@ import SpaceSelector from '../components/SpaceSelector';
 import { Product } from '../types';
 import { PlusIcon, FolderIcon } from '../components/Icons';
 import { useI18n } from '../lib/i18n';
+import SyncIndicator from '../components/SyncIndicator';
 import { Svg, Circle, Path } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
@@ -107,8 +108,8 @@ export default function HomeScreen({ onCreateSpace, onJoinSpace, onOpenProUpgrad
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <SyncIndicator />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-
                 {/* HERO CARD - Violet Gradient */}
                 <View style={styles.heroContainer}>
                     <LinearGradient

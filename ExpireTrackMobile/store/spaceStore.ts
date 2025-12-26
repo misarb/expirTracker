@@ -49,7 +49,8 @@ interface SpaceStore {
     // Membership & Invites
     joinSpaceWithCode: (code: string) => Promise<{ success: boolean; error?: string; space?: Space }>;
     leaveSpace: (spaceId: string) => Promise<void>;
-    removeMember: (spaceId: string, userId: string) => Promise<void>;
+    removeMember: (spaceId: string, userId: string) => Promise<{ success: boolean; error?: string }>;
+    transferOwnership: (spaceId: string, targetUserId: string) => Promise<{ success: boolean; error?: string }>;
 
     // Invites
     createInvite: (spaceId: string, maxUses?: number) => Promise<Invite | null>;
@@ -395,13 +396,47 @@ export const useSpaceStore = create<SpaceStore>()(
             },
 
             removeMember: async (spaceId: string, targetUserId: string) => {
-                await supabase
+                const { error } = await supabase
                     .from('members')
                     .update({ status: 'REMOVED' })
                     .eq('space_id', spaceId)
                     .eq('profile_id', targetUserId);
 
+                if (error) return { success: false, error: error.message };
                 await get().fetchSpaces();
+                return { success: true };
+            },
+
+            transferOwnership: async (spaceId: string, targetUserId: string) => {
+                const userId = useUserStore.getState().getUserId();
+                if (!userId) return { success: false, error: 'Not logged in' };
+
+                // 1. Demote self
+                const { error: error1 } = await supabase
+                    .from('members')
+                    .update({ role: 'MEMBER' })
+                    .eq('space_id', spaceId)
+                    .eq('profile_id', userId);
+
+                // 2. Promote target
+                const { error: error2 } = await supabase
+                    .from('members')
+                    .update({ role: 'OWNER' })
+                    .eq('space_id', spaceId)
+                    .eq('profile_id', targetUserId);
+
+                // 3. Update space creator (owner)
+                const { error: error3 } = await supabase
+                    .from('spaces')
+                    .update({ created_by: targetUserId })
+                    .eq('id', spaceId);
+
+                if (error1 || error2 || error3) {
+                    return { success: false, error: error1?.message || error2?.message || error3?.message };
+                }
+
+                await get().fetchSpaces();
+                return { success: true };
             },
 
             createInvite: async (spaceId: string, maxUses: number = 5) => {

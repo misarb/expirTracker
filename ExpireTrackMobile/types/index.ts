@@ -44,6 +44,7 @@ export interface Product {
     openedDate?: string; // When it was opened
     notifyTiming?: number; // Custom notification timing (days before)
     criticalDays?: number; // Days before expiry to mark as "expiring soon" (default: 3)
+    addedBy?: string; // Profile ID of member who added this product
 
     createdAt: string;
     updatedAt: string;

@@ -96,6 +96,8 @@ CREATE TABLE public.products (
     shelf_life_days INTEGER,
     opened_date TIMESTAMP WITH TIME ZONE,
     notify_timing INTEGER,
+    critical_days INTEGER DEFAULT 3,
+    added_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

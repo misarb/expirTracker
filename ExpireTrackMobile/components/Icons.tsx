@@ -140,3 +140,27 @@ export const UsersIcon = ({ size = 24, color }: any) => {
         </Svg>
     );
 };
+
+export const ChevronDownIcon = ({ size = 24, color }: any) => {
+    const { theme: themeSetting } = useSettingsStore();
+    const systemTheme = useColorScheme();
+    const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
+    const finalColor = color || colors.foreground[isDark ? 'dark' : 'light'];
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={finalColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M6 9l6 6 6-6" />
+        </Svg>
+    );
+};
+
+export const CheckIcon = ({ size = 24, color }: any) => {
+    const { theme: themeSetting } = useSettingsStore();
+    const systemTheme = useColorScheme();
+    const isDark = themeSetting === 'system' ? systemTheme === 'dark' : themeSetting === 'dark';
+    const finalColor = color || colors.foreground[isDark ? 'dark' : 'light'];
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={finalColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M20 6L9 17l-5-5" />
+        </Svg>
+    );
+};

@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     View,
     Text,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
-    useColorScheme,
-    Alert,
     TextInput,
-    Switch
+    Switch,
+    useColorScheme,
+    ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import { useProductStore } from '../store/productStore';
 import { colors, spacing } from '../theme/colors';
 import { TrashIcon } from '../components/Icons';
 import InviteModal from '../components/InviteModal';
+import DeleteSpaceModal from '../components/DeleteSpaceModal';
 
 export default function FamilySpaceSettingsScreen() {
     const navigation = useNavigation();
@@ -44,7 +46,7 @@ export default function FamilySpaceSettingsScreen() {
         getSpaceActivities,
     } = useSpaceStore();
     const { getUserId, currentUser } = useUserStore();
-    const { getProductsBySpace } = useProductStore();
+    const { getProductsBySpace, fetchData } = useProductStore();
 
     const space = getSpaceById(spaceId);
     const members = getSpaceMembers(spaceId);
@@ -56,8 +58,18 @@ export default function FamilySpaceSettingsScreen() {
     const notificationsEnabled = isSpaceNotificationEnabled(spaceId);
 
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-    const [deleteConfirmText, setDeleteConfirmText] = useState('');
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch products for this space on mount
+    useEffect(() => {
+        const loadProducts = async () => {
+            setIsLoading(true);
+            await fetchData(spaceId);
+            setIsLoading(false);
+        };
+        loadProducts();
+    }, [spaceId]);
 
     const styles = getStyles(theme);
 
@@ -111,16 +123,28 @@ export default function FamilySpaceSettingsScreen() {
     };
 
     const handleDeleteSpace = () => {
-        setShowDeleteConfirm(true);
+        setIsDeleteModalOpen(true);
     };
 
-    const confirmDeleteSpace = () => {
-        if (deleteConfirmText.trim().toLowerCase() !== space.name.toLowerCase()) {
-            Alert.alert('Incorrect Name', 'Please type the exact space name to confirm deletion.');
+    const handleConfirmDelete = async (migrationData?: { action: string, targetSpaceId?: string, selectedIds?: string[] }) => {
+        if (!migrationData) {
+            // Default delete everything
+            await deleteSpace(spaceId);
+            safeGoBack();
             return;
         }
 
-        deleteSpace(spaceId);
+        const { action, targetSpaceId, selectedIds } = migrationData;
+
+        if (action === 'move-all' || action === 'keep-some') {
+            if (targetSpaceId && selectedIds && selectedIds.length > 0) {
+                const { batchMoveToSpace } = useProductStore.getState();
+                await batchMoveToSpace(selectedIds, targetSpaceId);
+            }
+        }
+
+        await deleteSpace(spaceId);
+        setIsDeleteModalOpen(false);
         safeGoBack();
     };
 
@@ -185,181 +209,156 @@ export default function FamilySpaceSettingsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Space Info */}
-                <View style={styles.spaceCard}>
-                    <Text style={styles.spaceIcon}>{space.icon}</Text>
-                    <Text style={styles.spaceName}>{space.name}</Text>
-                    <Text style={styles.spaceMeta}>
-                        {memberCount} member{memberCount !== 1 ? 's' : ''} • {products.length} products
-                    </Text>
-                    {isSpaceOwner && (
-                        <View style={styles.ownerBadge}>
-                            <Text style={styles.ownerBadgeText}>👑 Owner</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Invite Section (Owner only) */}
-                {isSpaceOwner && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Invite Members</Text>
-                        <TouchableOpacity
-                            style={styles.inviteBtn}
-                            onPress={() => setIsInviteModalOpen(true)}
-                        >
-                            <Text style={styles.inviteBtnIcon}>🔗</Text>
-                            <View style={styles.inviteBtnContent}>
-                                <Text style={styles.inviteBtnText}>Get Invite Code</Text>
-                                <Text style={styles.inviteBtnSubtext}>Share with family to let them join</Text>
-                            </View>
-                            <Text style={styles.inviteArrow}>→</Text>
-                        </TouchableOpacity>
+                {isLoading ? (
+                    <View style={styles.loadingArea}>
+                        <ActivityIndicator size="large" color={colors.primary[theme]} />
+                        <Text style={styles.loadingText}>Syncing space data...</Text>
                     </View>
-                )}
-
-                {/* Members Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Members ({memberCount})</Text>
-                    {members.map((member) => (
-                        <View key={member.id} style={styles.memberRow}>
-                            <View style={styles.memberAvatar}>
-                                <Text style={styles.memberAvatarText}>{member.avatarEmoji}</Text>
-                            </View>
-                            <View style={styles.memberInfo}>
-                                <Text style={styles.memberName}>
-                                    {member.displayName}
-                                    {member.id === userId && ' (You)'}
-                                </Text>
-                                <View style={styles.memberRoleContainer}>
-                                    {member.id === space.createdBy ? (
-                                        <View style={[styles.roleBadge, styles.roleBadgeOwner]}>
-                                            <Text style={styles.roleBadgeText}>👑 Owner</Text>
-                                        </View>
-                                    ) : (
-                                        <View style={[styles.roleBadge, styles.roleBadgeMember]}>
-                                            <Text style={[styles.roleBadgeText, { color: '#6b7280' }]}>Member</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            </View>
-                            {isSpaceOwner && member.id !== userId && (
-                                <View style={styles.memberActions}>
-                                    <TouchableOpacity
-                                        style={styles.transferOwnerBtn}
-                                        onPress={() => handleTransferOwnership(member.id, member.displayName)}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.transferOwnerIcon}>👑</Text>
-                                        <Text style={styles.transferOwnerText}>Transfer</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.removeMemberBtn}
-                                        onPress={() => handleRemoveMember(member.id, member.displayName)}
-                                        activeOpacity={0.8}
-                                    >
-                                        <TrashIcon size={14} color="#fff" />
-                                        <Text style={styles.removeMemberText}>Remove</Text>
-                                    </TouchableOpacity>
+                ) : (
+                    <>
+                        {/* Space Info */}
+                        <View style={styles.spaceCard}>
+                            <Text style={styles.spaceIcon}>{space.icon}</Text>
+                            <Text style={styles.spaceName}>{space.name}</Text>
+                            <Text style={styles.spaceMeta}>
+                                {memberCount} member{memberCount !== 1 ? 's' : ''} • {products.length} products
+                            </Text>
+                            {isSpaceOwner && (
+                                <View style={styles.ownerBadge}>
+                                    <Text style={styles.ownerBadgeText}>👑 Owner</Text>
                                 </View>
                             )}
                         </View>
-                    ))}
-                </View>
 
-                {/* Notifications */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Notifications</Text>
-                    <View style={styles.settingRow}>
-                        <View style={styles.settingInfo}>
-                            <Text style={styles.settingLabel}>Expiration Alerts</Text>
-                            <Text style={styles.settingDesc}>
-                                Receive notifications for expiring products
-                            </Text>
-                        </View>
-                        <Switch
-                            value={notificationsEnabled}
-                            onValueChange={(enabled) => setSpaceNotificationEnabled(spaceId, enabled)}
-                            trackColor={{ false: colors.border[theme], true: colors.primary[theme] }}
-                        />
-                    </View>
-                </View>
-
-                {/* Activity */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Recent Activity</Text>
-                        <Text style={styles.sectionCount}>{activities.length} events</Text>
-                    </View>
-                    {activities.slice(0, 5).map((activity) => (
-                        <View key={activity.id} style={styles.activityRow}>
-                            <Text style={styles.activityText}>
-                                <Text style={styles.activityActor}>{activity.actorName}</Text>
-                                {' '}
-                                {activity.type === 'PRODUCT_ADDED' && `added ${activity.payload.productName}`}
-                                {activity.type === 'PRODUCT_UPDATED' && `updated ${activity.payload.productName}`}
-                                {activity.type === 'PRODUCT_DELETED' && `deleted ${activity.payload.productName}`}
-                                {activity.type === 'MEMBER_JOINED' && 'joined the space'}
-                                {activity.type === 'MEMBER_LEFT' && 'left the space'}
-                                {activity.type === 'MEMBER_REMOVED' && `was removed`}
-                            </Text>
-                            <Text style={styles.activityTime}>
-                                {new Date(activity.createdAt).toLocaleDateString()}
-                            </Text>
-                        </View>
-                    ))}
-                    {activities.length === 0 && (
-                        <Text style={styles.emptyText}>No activity yet</Text>
-                    )}
-                </View>
-
-                {/* Danger Zone */}
-                <View style={[styles.section, styles.dangerSection]}>
-                    <Text style={[styles.sectionTitle, { color: '#ef4444' }]}>Danger Zone</Text>
-
-                    {/* Leave Space */}
-                    <TouchableOpacity
-                        style={styles.dangerBtn}
-                        onPress={handleLeaveSpace}
-                    >
-                        <Text style={styles.dangerBtnText}>🚪 Leave this Space</Text>
-                    </TouchableOpacity>
-
-                    {/* Delete Space (Owner only) */}
-                    {isSpaceOwner && (
-                        <>
-                            {showDeleteConfirm ? (
-                                <View style={styles.deleteConfirm}>
-                                    <Text style={styles.deleteConfirmLabel}>
-                                        Type "{space.name}" to confirm deletion:
-                                    </Text>
-                                    <TextInput
-                                        style={styles.deleteConfirmInput}
-                                        value={deleteConfirmText}
-                                        onChangeText={setDeleteConfirmText}
-                                        placeholder={space.name}
-                                        placeholderTextColor="#ef4444"
-                                    />
-                                    <View style={styles.deleteConfirmActions}>
-                                        <TouchableOpacity
-                                            style={styles.deleteConfirmCancel}
-                                            onPress={() => {
-                                                setShowDeleteConfirm(false);
-                                                setDeleteConfirmText('');
-                                            }}
-                                        >
-                                            <Text style={styles.deleteConfirmCancelText}>Cancel</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.deleteConfirmBtn}
-                                            onPress={confirmDeleteSpace}
-                                        >
-                                            <Text style={styles.deleteConfirmBtnText}>Delete Forever</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            ) : (
+                        {/* Invite Section (Owner only) */}
+                        {isSpaceOwner && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Invite Members</Text>
                                 <TouchableOpacity
-                                    style={[styles.dangerBtn, { backgroundColor: '#fef2f2' }]}
+                                    style={styles.inviteBtn}
+                                    onPress={() => setIsInviteModalOpen(true)}
+                                >
+                                    <Text style={styles.inviteBtnIcon}>🔗</Text>
+                                    <View style={styles.inviteBtnContent}>
+                                        <Text style={styles.inviteBtnText}>Get Invite Code</Text>
+                                        <Text style={styles.inviteBtnSubtext}>Share with family to let them join</Text>
+                                    </View>
+                                    <Text style={styles.inviteArrow}>→</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* Members Section */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Members ({memberCount})</Text>
+                            {members.map((member) => (
+                                <View key={member.id} style={styles.memberRow}>
+                                    <View style={styles.memberAvatar}>
+                                        <Text style={styles.memberAvatarText}>{member.avatarEmoji}</Text>
+                                    </View>
+                                    <View style={styles.memberInfo}>
+                                        <Text style={styles.memberName}>
+                                            {member.displayName}
+                                            {member.id === userId && ' (You)'}
+                                        </Text>
+                                        <View style={styles.memberRoleContainer}>
+                                            {member.id === space.createdBy ? (
+                                                <View style={[styles.roleBadge, styles.roleBadgeOwner]}>
+                                                    <Text style={styles.roleBadgeText}>👑 Owner</Text>
+                                                </View>
+                                            ) : (
+                                                <View style={[styles.roleBadge, styles.roleBadgeMember]}>
+                                                    <Text style={[styles.roleBadgeText, { color: '#6b7280' }]}>Member</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+                                    {isSpaceOwner && member.id !== userId && (
+                                        <View style={styles.memberActions}>
+                                            <TouchableOpacity
+                                                style={styles.transferOwnerBtn}
+                                                onPress={() => handleTransferOwnership(member.id, member.displayName)}
+                                                activeOpacity={0.8}
+                                            >
+                                                <Text style={styles.transferOwnerIcon}>👑</Text>
+                                                <Text style={styles.transferOwnerText}>Transfer</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.removeMemberBtn}
+                                                onPress={() => handleRemoveMember(member.id, member.displayName)}
+                                                activeOpacity={0.8}
+                                            >
+                                                <TrashIcon size={14} color="#fff" />
+                                                <Text style={styles.removeMemberText}>Remove</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+                            ))}
+                        </View>
+
+                        {/* Notifications */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Notifications</Text>
+                            <View style={styles.settingRow}>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingLabel}>Expiration Alerts</Text>
+                                    <Text style={styles.settingDesc}>
+                                        Receive notifications for expiring products
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={notificationsEnabled}
+                                    onValueChange={(enabled) => setSpaceNotificationEnabled(spaceId, enabled)}
+                                    trackColor={{ false: colors.border[theme], true: colors.primary[theme] }}
+                                />
+                            </View>
+                        </View>
+
+                        {/* Activity */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Recent Activity</Text>
+                                <Text style={styles.sectionCount}>{activities.length} events</Text>
+                            </View>
+                            {activities.slice(0, 5).map((activity) => (
+                                <View key={activity.id} style={styles.activityRow}>
+                                    <Text style={styles.activityText}>
+                                        <Text style={styles.activityActor}>{activity.actorName}</Text>
+                                        {' '}
+                                        {activity.type === 'PRODUCT_ADDED' && `added ${activity.payload.productName}`}
+                                        {activity.type === 'PRODUCT_UPDATED' && `updated ${activity.payload.productName}`}
+                                        {activity.type === 'PRODUCT_DELETED' && `deleted ${activity.payload.productName}`}
+                                        {activity.type === 'MEMBER_JOINED' && 'joined the space'}
+                                        {activity.type === 'MEMBER_LEFT' && 'left the space'}
+                                        {activity.type === 'MEMBER_REMOVED' && `was removed`}
+                                    </Text>
+                                    <Text style={styles.activityTime}>
+                                        {new Date(activity.createdAt).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                            ))}
+                            {activities.length === 0 && (
+                                <Text style={styles.emptyText}>No activity yet</Text>
+                            )}
+                        </View>
+
+                        {/* Danger Zone */}
+                        <View style={[styles.section, styles.dangerSection]}>
+                            <Text style={[styles.sectionTitle, { color: '#ef4444' }]}>Danger Zone</Text>
+
+                            {/* Leave Space */}
+                            <TouchableOpacity
+                                style={styles.dangerBtn}
+                                onPress={handleLeaveSpace}
+                            >
+                                <Text style={styles.dangerBtnText}>🚪 Leave this Space</Text>
+                            </TouchableOpacity>
+
+                            {/* Delete Space (Owner only) */}
+                            {isSpaceOwner && (
+                                <TouchableOpacity
+                                    style={[styles.dangerBtn, { backgroundColor: isDark ? colors.destructive + '15' : '#fef2f2' }]}
                                     onPress={handleDeleteSpace}
                                 >
                                     <Text style={[styles.dangerBtnText, { color: '#dc2626' }]}>
@@ -367,17 +366,26 @@ export default function FamilySpaceSettingsScreen() {
                                     </Text>
                                 </TouchableOpacity>
                             )}
-                        </>
-                    )}
-                </View>
+                        </View>
 
-                <View style={{ height: 50 }} />
+                        <View style={{ height: 50 }} />
+                    </>
+                )}
             </ScrollView>
 
             <InviteModal
                 visible={isInviteModalOpen}
                 onClose={() => setIsInviteModalOpen(false)}
                 spaceId={spaceId}
+            />
+
+            <DeleteSpaceModal
+                visible={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                spaceId={spaceId}
+                spaceName={space.name}
+                spaceIcon={space.icon || '🏠'}
             />
         </SafeAreaView>
     );
@@ -429,6 +437,16 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     backBtnText: {
         color: '#fff',
         fontWeight: '600',
+    },
+
+    loadingArea: {
+        paddingVertical: 50,
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        color: colors.muted[theme],
+        fontSize: 14,
     },
 
     spaceCard: {

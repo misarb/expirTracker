@@ -13,7 +13,8 @@ export function calculateStatus(
     expirationDate: string,
     useShelfLife?: boolean,
     openedDate?: string,
-    shelfLifeDays?: number
+    shelfLifeDays?: number,
+    criticalDays: number = 7
 ): ProductStatus {
     const today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -31,7 +32,7 @@ export function calculateStatus(
     const days = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (days < 0) return 'expired';
-    if (days <= 7) return 'expiring-soon';
+    if (days <= criticalDays) return 'expiring-soon';
     return 'safe';
 }
 
@@ -41,6 +42,7 @@ interface ProductStore {
     locations: Location[];
     loading: boolean;
     realtimeChannels: Map<string, any>; // Map of spaceId -> channel
+    pendingSyncCount: number;
 
     // Actions
     fetchData: (spaceId: string) => Promise<void>;
@@ -50,6 +52,11 @@ interface ProductStore {
     addProduct: (product: Omit<Product, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => Promise<string | null>;
     updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
     deleteProduct: (id: string) => Promise<void>;
+
+    // Batch Actions
+    batchDeleteProducts: (ids: string[]) => Promise<void>;
+    batchMoveToSpace: (ids: string[], targetSpaceId: string) => Promise<void>;
+    batchUpdateProducts: (ids: string[], updates: Partial<Product>) => Promise<void>;
 
     // Location CRUD
     addLocation: (location: Omit<Location, 'id'>) => Promise<string | null>;
@@ -83,6 +90,7 @@ export const useProductStore = create<ProductStore>()(
             locations: [],
             loading: false,
             realtimeChannels: new Map(),
+            pendingSyncCount: 0,
 
             fetchData: async (spaceId: string) => {
                 set({ loading: true });
@@ -115,8 +123,8 @@ export const useProductStore = create<ProductStore>()(
                     name: p.name,
                     status: p.status as ProductStatus,
                     expirationDate: p.expiration_date,
-                    spaceId: p.space_id,
                     locationId: p.location_id,
+                    spaceId: p.space_id,
                     image: p.image,
                     quantity: p.quantity,
                     purchaseDate: p.purchase_date,
@@ -128,6 +136,8 @@ export const useProductStore = create<ProductStore>()(
                     shelfLifeDays: p.shelf_life_days,
                     openedDate: p.opened_date,
                     notifyTiming: p.notify_timing,
+                    criticalDays: p.critical_days,
+                    addedBy: p.added_by,
                     createdAt: p.created_at,
                     updatedAt: p.updated_at
                 }));
@@ -142,7 +152,8 @@ export const useProductStore = create<ProductStore>()(
                         ...state.products.filter(p => p.spaceId !== spaceId),
                         ...newProducts
                     ],
-                    loading: false
+                    loading: false,
+                    pendingSyncCount: 0
                 }));
             },
 
@@ -164,7 +175,7 @@ export const useProductStore = create<ProductStore>()(
             addProduct: async (data) => {
                 const status = data.hasExpirationDate === false
                     ? 'safe'
-                    : calculateStatus(data.expirationDate, data.useShelfLife, data.openedDate, data.shelfLifeDays);
+                    : calculateStatus(data.expirationDate, data.useShelfLife, data.openedDate, data.shelfLifeDays, data.criticalDays || 3);
 
                 const { data: product, error } = await supabase
                     .from('products')
@@ -184,7 +195,9 @@ export const useProductStore = create<ProductStore>()(
                         use_shelf_life: data.useShelfLife,
                         shelf_life_days: data.shelfLifeDays,
                         opened_date: data.openedDate,
-                        notify_timing: data.notifyTiming
+                        notify_timing: data.notifyTiming,
+                        critical_days: data.criticalDays || 3,
+                        added_by: useUserStore.getState().getUserId()
                     })
                     .select()
                     .single();
@@ -195,6 +208,7 @@ export const useProductStore = create<ProductStore>()(
                     id: product.id,
                     ...data,
                     status: product.status as ProductStatus,
+                    addedBy: product.added_by,
                     createdAt: product.created_at,
                     updatedAt: product.updated_at
                 };
@@ -227,6 +241,14 @@ export const useProductStore = create<ProductStore>()(
                         image: updates.image,
                         quantity: updates.quantity,
                         notes: updates.notes,
+                        is_recurring: updates.isRecurring,
+                        recurring_days: updates.recurringDays,
+                        has_expiration_date: updates.hasExpirationDate,
+                        use_shelf_life: updates.useShelfLife,
+                        shelf_life_days: updates.shelfLifeDays,
+                        opened_date: updates.openedDate,
+                        notify_timing: updates.notifyTiming,
+                        critical_days: updates.criticalDays,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', id)
@@ -260,6 +282,85 @@ export const useProductStore = create<ProductStore>()(
                             productId: product.id,
                         });
                     }
+                }
+            },
+
+            batchDeleteProducts: async (ids) => {
+                const affectedProducts = get().products.filter(p => ids.includes(p.id));
+                const spaceId = affectedProducts[0]?.spaceId;
+
+                set(state => ({ pendingSyncCount: state.pendingSyncCount + 1 }));
+                const { error } = await supabase.from('products').delete().in('id', ids);
+
+                if (!error) {
+                    set(state => ({
+                        products: state.products.filter(p => !ids.includes(p.id)),
+                        pendingSyncCount: Math.max(0, state.pendingSyncCount - 1)
+                    }));
+                    ids.forEach(id => cancelProductNotification(id));
+
+                    if (spaceId) {
+                        useSpaceStore.getState().logActivity(spaceId, 'PRODUCT_DELETED', {
+                            productName: `${ids.length} products`,
+                            notes: 'Batch deletion'
+                        });
+                    }
+                } else {
+                    set(state => ({ pendingSyncCount: Math.max(0, state.pendingSyncCount - 1) }));
+                }
+            },
+
+            batchMoveToSpace: async (ids, targetSpaceId) => {
+                const productsToMove = get().products.filter(p => ids.includes(p.id));
+                const sourceSpaceId = productsToMove[0]?.spaceId;
+
+                set(state => ({ pendingSyncCount: state.pendingSyncCount + 1 }));
+                const { error } = await supabase
+                    .from('products')
+                    .update({ space_id: targetSpaceId, location_id: null })
+                    .in('id', ids);
+
+                if (!error) {
+                    const currentSpaceId = useSpaceStore.getState().currentSpaceId;
+                    set(state => ({
+                        products: state.products.filter(p => !ids.includes(p.id)),
+                        pendingSyncCount: Math.max(0, state.pendingSyncCount - 1)
+                    }));
+
+                    if (sourceSpaceId) {
+                        useSpaceStore.getState().logActivity(sourceSpaceId, 'PRODUCT_DELETED', {
+                            productName: `${ids.length} products`,
+                            notes: `Moved to another space`
+                        });
+                    }
+
+                    // Re-fetch target space if it's currently relevant
+                    await get().fetchData(targetSpaceId);
+                    if (currentSpaceId) await get().fetchData(currentSpaceId);
+                } else {
+                    set(state => ({ pendingSyncCount: Math.max(0, state.pendingSyncCount - 1) }));
+                }
+            },
+
+            batchUpdateProducts: async (ids, updates) => {
+                set(state => ({ pendingSyncCount: state.pendingSyncCount + 1 }));
+                // Convert camelCase to snake_case for Supabase if needed, but our updates are simple here
+                const supabaseUpdates: any = {};
+                if (updates.openedDate !== undefined) supabaseUpdates.opened_date = updates.openedDate;
+                if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+                if (updates.locationId !== undefined) supabaseUpdates.location_id = updates.locationId;
+
+                const { error } = await supabase
+                    .from('products')
+                    .update(supabaseUpdates)
+                    .in('id', ids);
+
+                if (!error) {
+                    const firstProd = get().products.find(p => ids.includes(p.id));
+                    if (firstProd && firstProd.spaceId) await get().fetchData(firstProd.spaceId);
+                    set(state => ({ pendingSyncCount: Math.max(0, state.pendingSyncCount - 1) }));
+                } else {
+                    set(state => ({ pendingSyncCount: Math.max(0, state.pendingSyncCount - 1) }));
                 }
             },
 

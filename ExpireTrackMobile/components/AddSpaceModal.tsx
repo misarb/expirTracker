@@ -8,9 +8,28 @@ import { Svg, Path } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
-// Common emojis used in the app
+// Colorful Folder Icon Component
+const ColoredFolderIcon = ({ size = 24, color }: { size?: number, color: string }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+        <Path d="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z" />
+    </Svg>
+);
+
+// Colorful folder options - rendered as SVG icons with different colors
+const COLORED_FOLDERS = [
+    { id: 'folder-blue', color: '#3b82f6', label: 'Blue Folder' },
+    { id: 'folder-green', color: '#10b981', label: 'Green Folder' },
+    { id: 'folder-yellow', color: '#f59e0b', label: 'Yellow Folder' },
+    { id: 'folder-red', color: '#ef4444', label: 'Red Folder' },
+    { id: 'folder-purple', color: '#8b5cf6', label: 'Purple Folder' },
+    { id: 'folder-pink', color: '#ec4899', label: 'Pink Folder' },
+    { id: 'folder-indigo', color: '#6366f1', label: 'Indigo Folder' },
+    { id: 'folder-teal', color: '#14b8a6', label: 'Teal Folder' },
+];
+
+// Common emojis used in the app - including folder icons
 const SPACE_ICONS = [
-    "📦", "🗄️", "📂", "🗃️", "🏠", "🛁", "🧴", "💊", "🧊", "🥫", "🥦", "🍎", "🧺", "🚗", "🪴", "🧸", "📚", "✏️", "🔧", "🧳"
+    "📁", "🗂️", "📂", "🗃️", "📋", "📦", "🗄️", "🏠", "🛁", "🧴", "💊", "🧊", "🥫", "🥦", "🍎", "🧺", "🚗", "🪴", "🧸", "📚", "✏️", "🔧", "🧳"
 ];
 
 interface AddSpaceModalProps {
@@ -52,11 +71,15 @@ export default function AddSpaceModal({ visible, onClose, defaultParentId }: Add
             return;
         }
 
+        // Check if it's a colored folder ID
+        const isColoredFolder = icon.startsWith('folder-');
+        const folderData = COLORED_FOLDERS.find(f => f.id === icon);
+
         addLocation({
             name,
             description: description || undefined,
-            icon,
-            color: '#8B5CF6',
+            icon: isColoredFolder && folderData ? folderData.id : icon,
+            color: isColoredFolder && folderData ? folderData.color : '#8B5CF6',
             parentId: parentId || undefined,
             spaceId: spaceId,
             createdBy: userId
@@ -129,18 +152,40 @@ export default function AddSpaceModal({ visible, onClose, defaultParentId }: Add
                             </View>
                             <Text style={styles.helperText}>Create as a sub-space inside another space</Text>
 
-                            {/* Icon Grid */}
+                            {/* Icon Selection - Colored Folders First, then Emojis */}
                             <Text style={styles.label}>Icon</Text>
-                            <View style={styles.iconGrid}>
-                                {SPACE_ICONS.map((emoji) => (
-                                    <TouchableOpacity
-                                        key={emoji}
-                                        style={[styles.iconOption, icon === emoji && styles.iconOptionSelected]}
-                                        onPress={() => setIcon(emoji)}
-                                    >
-                                        <Text style={{ fontSize: 24 }}>{emoji}</Text>
-                                    </TouchableOpacity>
-                                ))}
+                            <Text style={styles.helperText}>Choose a colorful folder or emoji</Text>
+
+                            {/* Colorful Folders Section */}
+                            <View style={{ marginBottom: 16 }}>
+                                <Text style={styles.sectionTitle}>Colored Folders</Text>
+                                <View style={styles.iconGrid}>
+                                    {COLORED_FOLDERS.map((folder) => (
+                                        <TouchableOpacity
+                                            key={folder.id}
+                                            style={[styles.iconOption, icon === folder.id && styles.iconOptionSelected]}
+                                            onPress={() => setIcon(folder.id)}
+                                        >
+                                            <ColoredFolderIcon size={28} color={folder.color} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+
+                            {/* Emoji Icons Section */}
+                            <View>
+                                <Text style={styles.sectionTitle}>Emojis</Text>
+                                <View style={styles.iconGrid}>
+                                    {SPACE_ICONS.map((emoji) => (
+                                        <TouchableOpacity
+                                            key={emoji}
+                                            style={[styles.iconOption, icon === emoji && styles.iconOptionSelected]}
+                                            onPress={() => setIcon(emoji)}
+                                        >
+                                            <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
 
                             {/* Description */}
@@ -216,6 +261,15 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginTop: 4,
         marginBottom: 8
+    },
+    sectionTitle: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6b7280',
+        marginBottom: 8,
+        marginTop: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
 
     iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

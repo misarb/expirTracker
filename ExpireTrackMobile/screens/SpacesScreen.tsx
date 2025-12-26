@@ -8,15 +8,35 @@ import { useUIStore } from '../store/uiStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { colors, spacing, borderRadius, fontSize } from '../theme/colors';
 import { TrashIcon, PlusIcon, FolderIcon } from '../components/Icons';
+import { Svg, Path } from 'react-native-svg';
 import DeleteSpaceModal from '../components/DeleteSpaceModal';
 import ProductCard from '../components/ProductCard';
 
 const PASTEL_COLORS = [
-    { bg: '#e0f2fe', border: '#bae6fd' }, // Light Blue
-    { bg: '#fce7f3', border: '#fbcfe8' }, // Light Pink
-    { bg: '#fef3c7', border: '#fde68a' }, // Light Amber
-    { bg: '#dcfce7', border: '#bbf7d0' }, // Light Green
-    { bg: '#e0e7ff', border: '#c7d2fe' }, // Light Indigo
+    { bg: '#e0f2fe', border: '#bae6fd', icon: '#0284c7' }, // Light Blue
+    { bg: '#fce7f3', border: '#fbcfe8', icon: '#db2777' }, // Light Pink
+    { bg: '#fef3c7', border: '#fde68a', icon: '#d97706' }, // Light Amber
+    { bg: '#dcfce7', border: '#bbf7d0', icon: '#16a34a' }, // Light Green
+    { bg: '#e0e7ff', border: '#c7d2fe', icon: '#6366f1' }, // Light Indigo
+];
+
+// Colorful Folder Icon Component (same as in AddSpaceModal)
+const ColoredFolderIcon = ({ size = 24, color }: { size?: number, color: string }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+        <Path d="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z" />
+    </Svg>
+);
+
+// Colorful folder definitions (must match AddSpaceModal)
+const COLORED_FOLDERS = [
+    { id: 'folder-blue', color: '#3b82f6' },
+    { id: 'folder-green', color: '#10b981' },
+    { id: 'folder-yellow', color: '#f59e0b' },
+    { id: 'folder-red', color: '#ef4444' },
+    { id: 'folder-purple', color: '#8b5cf6' },
+    { id: 'folder-pink', color: '#ec4899' },
+    { id: 'folder-indigo', color: '#6366f1' },
+    { id: 'folder-teal', color: '#14b8a6' },
 ];
 
 export default function SpacesScreen() {
@@ -28,7 +48,8 @@ export default function SpacesScreen() {
         getProductsByLocation,
         products,
         deleteProduct,
-        getLocationsBySpace
+        getLocationsBySpace,
+        deleteLocation
     } = useProductStore();
     const { currentSpaceId } = useSpaceStore();
     const { setAddModalOpen, setDefaultLocationId, setEditingProduct, setAddSpaceModalOpen, setAddSpaceParentId } = useUIStore();
@@ -79,6 +100,13 @@ export default function SpacesScreen() {
         setAddSpaceModalOpen(true);
     };
 
+    const handleConfirmDelete = async () => {
+        if (!deleteSpaceId) return;
+        await deleteLocation(deleteSpaceId);
+        setIsDeleteModalOpen(false);
+        setDeleteSpaceId(null);
+    };
+
     const navigateToDetail = (spaceId?: string, isAllProducts?: boolean) => {
         // @ts-ignore - typed navigation setup separate
         navigation.navigate('SpaceDetail', { spaceId, isAllProducts });
@@ -108,7 +136,16 @@ export default function SpacesScreen() {
                     {/* Header Row */}
                     <View style={styles.cardHeader}>
                         <View style={styles.cardInfo}>
-                            <Text style={{ fontSize: 32, marginRight: 12 }}>{space.icon}</Text>
+                            {space.icon.startsWith('folder-') ? (
+                                <View style={{ marginRight: 12 }}>
+                                    <ColoredFolderIcon
+                                        size={32}
+                                        color={COLORED_FOLDERS.find(f => f.id === space.icon)?.color || '#8b5cf6'}
+                                    />
+                                </View>
+                            ) : (
+                                <Text style={{ fontSize: 32, marginRight: 12 }}>{space.icon}</Text>
+                            )}
                             <View>
                                 <Text style={styles.spaceName}>{space.name}</Text>
                                 <Text style={styles.spaceDesc}>{space.description || (hasChildren ? `${childSpaces.length} sub-spaces` : 'No description')}</Text>
@@ -116,19 +153,20 @@ export default function SpacesScreen() {
                         </View>
 
                         <View style={styles.actions}>
+                            {/* Expand Button (Chevron) - First from left */}
+                            {hasChildren && (
+                                <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleExpand(space.id) }} style={[styles.actionBtn, { backgroundColor: 'rgba(100,100,100,0.1)' }]}>
+                                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.foreground[theme] }}>{isExpanded ? '▲' : '▼'}</Text>
+                                </TouchableOpacity>
+                            )}
+                            {/* Add Sub-Location */}
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); openAddSpaceModal(space.id) }} style={[styles.actionBtn, { backgroundColor: '#818cf8' }]}>
+                                <PlusIcon size={16} color="#fff" />
+                            </TouchableOpacity>
+                            {/* Delete */}
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteSpacePress(space.id) }} style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]}>
                                 <TrashIcon size={16} color="#ef4444" />
                             </TouchableOpacity>
-                            {/* Add Sub-Location handled by opening modal */}
-                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); openAddSpaceModal(space.id) }} style={[styles.actionBtn, { backgroundColor: '#818cf8', marginRight: 4 }]}>
-                                <PlusIcon size={16} color="#fff" />
-                            </TouchableOpacity>
-                            {/* Expand Button (Chevron or similar to toggle sub-locations) */}
-                            {hasChildren && (
-                                <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleExpand(space.id) }} style={[styles.actionBtn, { backgroundColor: 'rgba(255,255,255,0.5)' }]}>
-                                    <Text style={{ fontSize: 12, fontWeight: 'bold' }}>{isExpanded ? '▲' : '▼'}</Text>
-                                </TouchableOpacity>
-                            )}
                         </View>
                     </View>
 
@@ -144,22 +182,42 @@ export default function SpacesScreen() {
 
                 {/* Expanded Content (Sub-Locations Only) */}
                 {isExpanded && (
-                    <View style={{ marginLeft: 16, marginTop: -4, marginBottom: 8, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#e5e7eb' }}>
-                        {childSpaces.map((child, i) => (
-                            <TouchableOpacity key={child.id} style={styles.subItemCard} onPress={() => navigateToDetail(child.id)}>
-                                <View style={styles.subIconBox}>
-                                    <Text style={{ fontSize: 18 }}>{child.icon}</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.subTitle}>{child.name}</Text>
-                                    <Text style={styles.subDesc}>{getProductsByLocation(child.id).length} products</Text>
-                                </View>
-                                <TouchableOpacity onPress={() => handleDeleteSpacePress(child.id)} style={{ marginRight: 8 }}>
-                                    <TrashIcon size={14} color="#ef4444" />
+                    <View style={styles.expandedContainer}>
+                        <View style={styles.expandedInner}>
+                            {childSpaces.map((child, i) => (
+                                <TouchableOpacity
+                                    key={child.id}
+                                    style={[
+                                        styles.subItemCard,
+                                        i === childSpaces.length - 1 && styles.subItemCardLast
+                                    ]}
+                                    onPress={() => navigateToDetail(child.id)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={{ marginRight: 12, justifyContent: 'center' }}>
+                                        {child.icon.startsWith('folder-') ? (
+                                            <ColoredFolderIcon
+                                                size={32}
+                                                color={COLORED_FOLDERS.find(f => f.id === child.icon)?.color || '#8b5cf6'}
+                                            />
+                                        ) : (
+                                            <Text style={{ fontSize: 28 }}>{child.icon}</Text>
+                                        )}
+                                    </View>
+                                    <View style={styles.subContent}>
+                                        <Text style={styles.subTitle}>{child.name}</Text>
+                                        <Text style={styles.subDesc}>{getProductsByLocation(child.id).length} products</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={(e) => { e.stopPropagation(); handleDeleteSpacePress(child.id); }}
+                                        style={styles.subDeleteBtn}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <TrashIcon size={16} color="#ef4444" />
+                                    </TouchableOpacity>
                                 </TouchableOpacity>
-                                <FolderIcon size={16} color="#9ca3af" />
-                            </TouchableOpacity>
-                        ))}
+                            ))}
+                        </View>
                     </View>
                 )}
             </View>
@@ -216,8 +274,11 @@ export default function SpacesScreen() {
 
             <DeleteSpaceModal
                 visible={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                spaceId={deleteSpaceId}
+                onClose={() => { setIsDeleteModalOpen(false); setDeleteSpaceId(null); }}
+                onConfirm={handleConfirmDelete}
+                spaceId={deleteSpaceId || ''}
+                spaceName={locations.find(l => l.id === deleteSpaceId)?.name || ''}
+                spaceIcon={locations.find(l => l.id === deleteSpaceId)?.icon || '📁'}
             />
         </SafeAreaView>
     );
@@ -266,22 +327,71 @@ const getStyles = (theme: 'light' | 'dark') => StyleSheet.create({
     actionBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     yellowBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
 
+    // Expanded Container
+    expandedContainer: {
+        marginLeft: 8,
+        marginTop: 8,
+        marginBottom: 12,
+        paddingLeft: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary[theme] + '40',
+    },
+    expandedInner: {
+        backgroundColor: colors.background[theme],
+        borderRadius: 16,
+        padding: 8,
+        paddingTop: 8,
+    },
+
     // Sub Items
     subItemCard: {
         backgroundColor: colors.card[theme],
-        borderRadius: 16,
-        padding: 12,
+        borderRadius: 12,
+        padding: 14,
         marginBottom: 8,
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.border[theme],
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: theme === 'dark' ? 0.3 : 0.05,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    subItemCardLast: {
+        marginBottom: 0,
     },
     subIconBox: {
-        width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background[theme], borderRadius: 10, marginRight: 12,
+        width: 48,
+        height: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.secondary[theme],
+        borderRadius: 12,
+        marginRight: 12,
     },
-    subTitle: { fontSize: 15, fontWeight: '600', color: colors.foreground[theme] },
-    subDesc: { fontSize: 12, color: colors.muted[theme] },
+    subContent: {
+        flex: 1,
+    },
+    subTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.foreground[theme],
+        marginBottom: 2,
+    },
+    subDesc: {
+        fontSize: 13,
+        color: colors.muted[theme]
+    },
+    subDeleteBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: '#fee2e2',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
 
     // Add Space Card
     addSpaceCard: {

@@ -55,23 +55,25 @@ export default function MembersScreen() {
         fetchSpaces();
     }, []);
 
-    // Fetch activities for all family spaces on mount
+    // Fetch activities for current space if it's a family space
     useEffect(() => {
-        familySpaces.forEach(space => {
-            fetchActivities(space.id);
-        });
-    }, [familySpaces.length]); // Re-fetch if number of spaces changes
+        if (currentSpaceId && currentSpaceId !== MY_SPACE_ID) {
+            fetchActivities(currentSpaceId);
+        }
+    }, [currentSpaceId]);
 
-    // Get activities for all family spaces from state
-    const allActivities = useMemo(() => {
-        const activities: Activity[] = [];
-        familySpaces.forEach(space => {
-            activities.push(...getSpaceActivities(space.id));
-        });
+    // Get activities for current space only (not My Space)
+    const currentSpaceActivities = useMemo(() => {
+        // Only show activities if we're on a family space (not My Space)
+        if (currentSpaceId === MY_SPACE_ID || !currentSpaceId) {
+            return [];
+        }
+
+        const activities = getSpaceActivities(currentSpaceId);
         return activities
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 20);
-    }, [familySpaces, getSpaceActivities]);
+    }, [currentSpaceId, getSpaceActivities]);
 
     const formatTimeAgo = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -256,18 +258,13 @@ export default function MembersScreen() {
                     </View>
                 </View>
 
-                {/* Recent Activity Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Recent Activity</Text>
+                {/* Recent Activity Section - Only show for family spaces with activity */}
+                {currentSpaceId !== MY_SPACE_ID && currentSpaceActivities.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Recent Activity</Text>
 
-                    {allActivities.length === 0 ? (
-                        <View style={styles.emptyActivity}>
-                            <Text style={styles.emptyActivityIcon}>📋</Text>
-                            <Text style={styles.emptyActivityText}>No recent activity</Text>
-                        </View>
-                    ) : (
                         <View style={styles.activityList}>
-                            {allActivities.map((activity) => {
+                            {currentSpaceActivities.map((activity) => {
                                 const space = familySpaces.find(s => s.id === activity.spaceId);
                                 return (
                                     <View key={activity.id} style={styles.activityItem}>
@@ -293,8 +290,8 @@ export default function MembersScreen() {
                                 );
                             })}
                         </View>
-                    )}
-                </View>
+                    </View>
+                )}
 
                 <View style={{ height: 100 }} />
             </ScrollView>
